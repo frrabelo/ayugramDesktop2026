@@ -32,6 +32,11 @@ jobs:
         run: |
           pip install poetry
 
+      - name: Configure Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Prepare Windows libraries
         run: |
           .\Telegram\build\prepare\win.bat
@@ -69,11 +74,6 @@ jobs:
       - name: Install poetry
         run: |
           pip install poetry
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-buildx wget
 
       - name: Prepare Linux libraries
         run: |
