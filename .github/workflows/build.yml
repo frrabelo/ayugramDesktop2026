@@ -61,10 +61,19 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install poetry
+        run: |
+          pip install poetry
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y docker-buildx poetry wget
+          sudo apt-get install -y docker-buildx wget
 
       - name: Prepare Linux libraries
         run: |
