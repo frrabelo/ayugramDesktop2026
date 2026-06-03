@@ -1,0 +1,134 @@
+name: Build AyuGram
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+      - master
+  pull_request:
+    branches:
+      - dev
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-2022
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install poetry
+        run: |
+          pip install poetry
+
+      - name: Prepare Windows libraries
+        run: |
+          .\Telegram\build\prepare\win.bat
+
+      - name: Configure CMake
+        run: |
+          cd Telegram
+          .\configure.bat x64 -D TDESKTOP_API_ID=2040 -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
+
+      - name: Build Project
+        run: |
+          cd out
+          msbuild Telegram.sln /p:Configuration=Release /p:Platform=x64 /m
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-Windows-x64
+          path: out/Release/AyuGram.exe
+
+  build-linux:
+    name: Build Linux x64 (AppImage)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-buildx poetry wget
+
+      - name: Prepare Linux libraries
+        run: |
+          ./Telegram/build/prepare/linux.sh
+
+      - name: Build Project inside Docker
+        run: |
+          docker run --rm \
+              -v "$PWD:/usr/src/tdesktop" \
+              ghcr.io/telegramdesktop/tdesktop/centos_env:latest \
+              /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+              -D TDESKTOP_API_ID=2040 \
+              -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
+
+      - name: Create AppImage
+        run: |
+          # Create AppDir structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          
+          # Copy binary and icon
+          # The binary name can be AyuGram or ayugram depending on configuration, we copy what's generated in out/Release
+          if [ -f "out/Release/AyuGram" ]; then
+              cp out/Release/AyuGram AppDir/usr/bin/ayugram
+          elif [ -f "out/Release/ayugram" ]; then
+              cp out/Release/ayugram AppDir/usr/bin/ayugram
+          else
+              # Fallback search if path differs
+              find out/ -name "AyuGram" -exec cp {} AppDir/usr/bin/ayugram \;
+              find out/ -name "ayugram" -exec cp {} AppDir/usr/bin/ayugram \;
+          fi
+          
+          cp .github/AyuGram.png AppDir/ayugram.png
+          cp .github/AyuGram.png AppDir/usr/share/icons/hicolor/256x256/apps/ayugram.png
+          
+          # Write desktop entry
+          cat <<EOF > AppDir/ayugram.desktop
+          [Desktop Entry]
+          Type=Application
+          Name=AyuGram
+          Exec=ayugram
+          Icon=ayugram
+          Categories=Network;InstantMessaging;Chat;
+          EOF
+          
+          # Write AppRun script
+          cat <<'EOF' > AppDir/AppRun
+          #!/bin/sh
+          SELF=$(readlink -f "$0")
+          HERE=$(dirname "$SELF")
+          exec "${HERE}/usr/bin/ayugram" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          # Get and run appimagetool
+          wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          
+          # Run without FUSE in container
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          ./appimagetool-x86_64.AppImage AppDir AyuGram-x86_64.AppImage
+
+      - name: Upload Linux AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-Linux-AppImage
+          path: AyuGram-x86_64.AppImage
