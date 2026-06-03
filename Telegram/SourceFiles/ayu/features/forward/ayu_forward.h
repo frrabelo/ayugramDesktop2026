@@ -10,9 +10,13 @@
 #include "main/main_session.h"
 
 namespace AyuForward {
+class AyuStatusBar;
+
 bool isForwarding(const PeerId &id);
 void cancelForward(const PeerId &id, const Main::Session &session);
 std::pair<QString, QString> stateName(const PeerId &id);
+void registerStatusBar(const PeerId &id, AyuStatusBar *bar);
+void unregisterStatusBar(const PeerId &id);
 
 class ForwardState
 {

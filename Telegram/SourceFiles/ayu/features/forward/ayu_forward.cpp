@@ -5,6 +5,8 @@
 //
 // Copyright @Radolyn, 2026
 #include "ayu/features/forward/ayu_forward.h"
+#include "ayu/features/forward/ayu_queue_manager.h"
+#include "ayu/features/forward/ayu_status_bar.h"
 
 #include "apiwrap.h"
 #include "lang_auto.h"
@@ -29,6 +31,15 @@
 namespace AyuForward {
 
 std::unordered_map<PeerId, std::shared_ptr<ForwardState>> forwardStates;
+std::unordered_map<PeerId, AyuStatusBar*> activeStatusBars;
+
+void registerStatusBar(const PeerId &id, AyuStatusBar *bar) {
+	activeStatusBars[id] = bar;
+}
+
+void unregisterStatusBar(const PeerId &id) {
+	activeStatusBars.erase(id);
+}
 
 bool isForwarding(const PeerId &id) {
 	const auto fwState = forwardStates.find(id);
@@ -334,112 +345,17 @@ void forwardMessages(
 
 	forwardStates[peer->id] = state;
 
-	std::unordered_map<uint64, uint64> groupIds;
-
-	std::vector<not_null<HistoryItem*>> toBeDownloaded;
-
-
-	for (const auto item : items) {
-		if (mediaDownloadable(item->media())) {
-			toBeDownloaded.push_back(item);
-		}
-
-		if (item->groupId()) {
-			const auto currentId = groupIds.find(item->groupId().value);
-
-			if (currentId == groupIds.end()) {
-				groupIds[item->groupId().value] = base::RandomValue<uint64>();
-			}
-		}
-	}
-	state->totalMessages = items.size();
-	if (!toBeDownloaded.empty()) {
-		state->state = ForwardState::State::Downloading;
-		state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
-		AyuSync::loadDocuments(session, toBeDownloaded);
+	AyuStatusBar* bar = nullptr;
+	const auto it = activeStatusBars.find(peer->id);
+	if (it != activeStatusBars.end()) {
+		bar = it->second;
 	}
 
+	QueueManager manager(session, action, items, draft.options, bar);
+	manager.runQueue();
 
-	state->sentMessages = 0;
-	state->updateBottomBar(*session, &peer->id, ForwardState::State::Sending);
-
-	for (int i = 0; i < items.size(); i++) {
-		const auto item = items[i];
-
-		if (state->stopRequested) {
-			state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
-			return;
-		}
-
-		auto extractedText = extractText(item);
-		if (extractedText.empty() && !mediaDownloadable(item->media())) {
-			continue;
-		}
-
-		auto message = Api::MessageToSend(Api::SendAction(session->data().history(peer->id)));
-		message.action.options.invertCaption = item->invertMedia();
-		message.action.replyTo = action.replyTo;
-
-		if (draft.options != Data::ForwardOptions::NoNamesAndCaptions) {
-			message.textWithTags = extractedText;
-		}
-
-		if (!mediaDownloadable(item->media())) {
-			AyuSync::sendMessageSync(session, std::move(message));
-		} else if (const auto media = item->media()) {
-			if (media->poll()) {
-				AyuSync::sendMessageSync(session, std::move(message));
-				continue;
-			}
-
-			std::vector<not_null<Data::Media*>> groupMedia;
-			auto preparedMedia = prepareMedia(session, items, i, groupMedia);
-
-			Ui::SendFilesWay way;
-			way.setGroupFiles(true);
-			way.setSendImagesAsPhotos(false);
-			for (const auto &media2 : groupMedia) {
-				if (media2->photo()) {
-					way.setSendImagesAsPhotos(true);
-					break;
-				}
-			}
-
-			// remove not finished files
-			for (int j = preparedMedia.files.size() - 1; j >= 0; j--) {
-				auto &file = preparedMedia.files[j];
-
-				QFile f(file.path);
-				if (
-                    (groupMedia[j]->photo() && f.size() < groupMedia[j]->photo()->imageByteSize(Data::PhotoSize::Large)) ||
-					(groupMedia[j]->document() && f.size() < groupMedia[j]->document()->size)
-				) {
-					preparedMedia.files.erase(preparedMedia.files.begin() + j);
-				}
-			}
-
-			if (preparedMedia.files.empty()) {
-				continue;
-			}
-
-			auto groups = Ui::DivideByGroups(
-				std::move(preparedMedia),
-				way,
-				peer->slowmodeApplied());
-
-			auto bundle = Ui::PrepareFilesBundle(
-				std::move(groups),
-				way,
-				false);
-			sendMedia(session, bundle, media, std::move(message), way.sendImagesAsPhotos());
-		}
-		// if there are grouped messages
-		// "i" is incremented in prepareMedia
-
-		state->sentMessages = i + 1;
-		state->updateBottomBar(*session, &peer->id, ForwardState::State::Sending);
-	}
 	state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
+}
 }
 
 } // namespace AyuFeatures::AyuForward

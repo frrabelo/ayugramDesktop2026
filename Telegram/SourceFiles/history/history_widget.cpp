@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_widget.h"
+#include "ayu/features/forward/ayu_status_bar.h"
+#include "ayu/features/forward/ayu_forward.h"
 
 #include "api/api_editing.h"
 #include "api/api_bot.h"
@@ -7276,9 +7278,15 @@ void HistoryWidget::updateControlsGeometry() {
 	if (_businessBotStatus) {
 		_businessBotStatus->bar().move(tabsLeftSkip, businessBotTop);
 	}
-	const auto scrollAreaTop = _topBars->y()
-		+ businessBotTop
+	const auto ayuStatusTop = businessBotTop
 		+ (_businessBotStatus ? _businessBotStatus->bar().height() : 0);
+	if (_ayuStatusBar) {
+		_ayuStatusBar->move(0, ayuStatusTop);
+		_ayuStatusBar->resizeToWidth(innerWidth);
+	}
+	const auto scrollAreaTop = _topBars->y()
+		+ ayuStatusTop
+		+ (_ayuStatusBar ? _ayuStatusBar->desiredHeight() : 0);
 	_topBars->resize(
 		innerWidth,
 		scrollAreaTop - _topBars->y() + st::lineWidth);
@@ -7473,6 +7481,7 @@ Data::SendError HistoryWidget::computeSendRestriction() const {
 }
 
 void HistoryWidget::updateSendRestriction() {
+	updateAyuStatusBar();
 	const auto restriction = computeSendRestriction();
 	if (_sendRestrictionKey == restriction.text) {
 		return;
@@ -7557,6 +7566,9 @@ void HistoryWidget::updateHistoryGeometry(
 	}
 	if (_businessBotStatus) {
 		newScrollHeight -= _businessBotStatus->bar().height();
+	}
+	if (_ayuStatusBar) {
+		newScrollHeight -= _ayuStatusBar->desiredHeight();
 	}
 	if (isChoosingTheme()) {
 		newScrollHeight -= _chooseTheme->height();
@@ -10458,6 +10470,9 @@ void HistoryWidget::synteticScrollToY(int y) {
 }
 
 HistoryWidget::~HistoryWidget() {
+	if (_peer) {
+		AyuForward::unregisterStatusBar(_peer->id);
+	}
 	if (_history) {
 		// Saving a draft on account switching.
 		saveFieldToHistoryLocalDraft();
@@ -10469,4 +10484,26 @@ HistoryWidget::~HistoryWidget() {
 	_subsectionTabsLifetime.destroy();
 	_subsectionTabs = nullptr;
 	setTabbedPanel(nullptr);
+}
+
+void HistoryWidget::updateAyuStatusBar() {
+	bool needBar = _peer && AyuForward::isForwarding(_peer->id);
+	if (needBar) {
+		if (!_ayuStatusBar) {
+			_ayuStatusBar = object_ptr<AyuForward::AyuStatusBar>(
+				_topBars.get(),
+				[=] { updateControlsGeometry(); });
+			_ayuStatusBar->show();
+			AyuForward::registerStatusBar(_peer->id, _ayuStatusBar.data());
+			updateControlsGeometry();
+		}
+	} else {
+		if (_ayuStatusBar) {
+			if (_peer) {
+				AyuForward::unregisterStatusBar(_peer->id);
+			}
+			_ayuStatusBar = nullptr;
+			updateControlsGeometry();
+		}
+	}
 }
