@@ -356,6 +356,5 @@ void forwardMessages(
 
 	state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
 }
-}
+} // namespace AyuForward
 
-} // namespace AyuFeatures::AyuForward
