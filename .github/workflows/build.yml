@@ -62,6 +62,8 @@ jobs:
   build-linux:
     name: Build Linux x64 (AppImage)
     runs-on: ubuntu-22.04
+    env:
+      LTO: ""
     steps:
       - name: Free Disk Space
         run: |
