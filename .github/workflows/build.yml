@@ -76,6 +76,12 @@ jobs:
           remove-codeql: 'true'
           remove-docker-images: 'true'
 
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          clean: false
+
       - name: Configure Docker to use maximized workspace
         run: |
           sudo systemctl stop docker
@@ -87,11 +93,6 @@ jobs:
             echo '{"data-root": "${{ github.workspace }}/docker-data"}' | sudo tee /etc/docker/daemon.json
           fi
           sudo systemctl start docker
-
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Setup Python
         uses: actions/setup-python@v5
