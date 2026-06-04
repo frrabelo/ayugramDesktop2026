@@ -17,8 +17,6 @@ jobs:
   build-windows:
     name: Build Windows x64
     runs-on: windows-2022
-    env:
-      CL: /MP2
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -49,6 +47,8 @@ jobs:
           .\configure.bat x64 -D TDESKTOP_API_ID=2040 -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
 
       - name: Build Project
+        env:
+          CL: /MP2
         run: |
           cd out
           msbuild Telegram.sln /p:Configuration=Release /p:Platform=x64 /m
@@ -65,12 +65,16 @@ jobs:
     env:
       LTO: ""
     steps:
-      - name: Free Disk Space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache
+      - name: Maximize Build Space
+        uses: easimon/maximize-build-space@v10
+        with:
+          root-reserve-mb: 5120
+          temp-reserve-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
 
       - name: Checkout Code
         uses: actions/checkout@v4
