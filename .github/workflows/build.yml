@@ -76,6 +76,18 @@ jobs:
           remove-codeql: 'true'
           remove-docker-images: 'true'
 
+      - name: Configure Docker to use maximized workspace
+        run: |
+          sudo systemctl stop docker
+          sudo mkdir -p ${{ github.workspace }}/docker-data
+          if [ -f /etc/docker/daemon.json ]; then
+            sudo jq '. + {"data-root": "${{ github.workspace }}/docker-data"}' /etc/docker/daemon.json > /tmp/docker-daemon.json
+            sudo mv /tmp/docker-daemon.json /etc/docker/daemon.json
+          else
+            echo '{"data-root": "${{ github.workspace }}/docker-data"}' | sudo tee /etc/docker/daemon.json
+          fi
+          sudo systemctl start docker
+
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
