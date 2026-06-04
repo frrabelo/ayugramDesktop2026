@@ -17,6 +17,7 @@ jobs:
   build-windows:
     name: Build Windows x64
     runs-on: windows-2022
+    if: false
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -84,6 +85,7 @@ jobs:
 
       - name: Configure Docker to use maximized workspace
         run: |
+          sudo systemctl stop docker.socket
           sudo systemctl stop docker
           sudo mkdir -p ${{ github.workspace }}/docker-data
           if [ -f /etc/docker/daemon.json ]; then
@@ -92,7 +94,10 @@ jobs:
           else
             echo '{"data-root": "${{ github.workspace }}/docker-data"}' | sudo tee /etc/docker/daemon.json
           fi
+          sudo systemctl daemon-reload
+          sudo systemctl start docker.socket
           sudo systemctl start docker
+          docker info | grep "Docker Root Dir"
 
       - name: Setup Python
         uses: actions/setup-python@v5
