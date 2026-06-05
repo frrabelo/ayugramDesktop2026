@@ -66,41 +66,21 @@ jobs:
     env:
       LTO: ""
     steps:
-      - name: Maximize Build Space
-        uses: easimon/maximize-build-space@v10
-        with:
-          root-reserve-mb: 40960
-          temp-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
-          remove-docker-images: 'true'
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          sudo apt-get clean
+          df -h
 
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
           clean: false
-
-      - name: Configure Docker to use maximized workspace
-        run: |
-          sudo systemctl stop docker.socket
-          sudo systemctl stop docker
-          sudo mkdir -p ${{ github.workspace }}/docker-data
-          if [ -d /var/lib/docker ] && [ ! -L /var/lib/docker ]; then
-            sudo rsync -a /var/lib/docker/ ${{ github.workspace }}/docker-data/
-            sudo rm -rf /var/lib/docker
-          fi
-          sudo ln -sf ${{ github.workspace }}/docker-data /var/lib/docker
-          if [ -f /etc/docker/daemon.json ]; then
-            sudo jq 'del(."data-root")' /etc/docker/daemon.json > /tmp/docker-daemon.json
-            sudo mv /tmp/docker-daemon.json /etc/docker/daemon.json
-          fi
-          sudo systemctl daemon-reload
-          sudo systemctl start docker.socket
-          sudo systemctl start docker
-          docker info | grep "Docker Root Dir"
 
       - name: Setup Python
         uses: actions/setup-python@v5
