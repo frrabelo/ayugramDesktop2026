@@ -107,18 +107,18 @@ jobs:
 
           # Fix 4: codegen_emoji/CMakeLists.txt - link order and unnecessary plugins
           python3 -c "
-import os
-filepath = 'Telegram/codegen/codegen/emoji/CMakeLists.txt'
-if os.path.exists(filepath):
-    with open(filepath, 'r', encoding='utf-8') as f:
-        content = f.read().replace('\r\n', '\n')
-    target = '    desktop-app::lib_base\n    desktop-app::codegen_common\n    desktop-app::external_qt_static_plugins\n    desktop-app::external_qt'
-    replacement = '    desktop-app::codegen_common\n    desktop-app::external_qt\n    desktop-app::lib_base'
-    if target in content:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(content.replace(target, replacement))
-        print('Codegen emoji CMakeLists.txt patched successfully.')
-"
+          import os
+          filepath = 'Telegram/codegen/codegen/emoji/CMakeLists.txt'
+          if os.path.exists(filepath):
+              with open(filepath, 'r', encoding='utf-8') as f:
+                  content = f.read().replace('\r\n', '\n')
+              target = '    desktop-app::lib_base\n    desktop-app::codegen_common\n    desktop-app::external_qt_static_plugins\n    desktop-app::external_qt'
+              replacement = '    desktop-app::codegen_common\n    desktop-app::external_qt\n    desktop-app::lib_base'
+              if target in content:
+                  with open(filepath, 'w', encoding='utf-8') as f:
+                      f.write(content.replace(target, replacement))
+                  print('Codegen emoji CMakeLists.txt patched successfully.')
+          "
 
           echo "Patches aplicados com sucesso."
 
