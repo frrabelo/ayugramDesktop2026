@@ -105,6 +105,21 @@ jobs:
           sed -i 's|\$<TARGET_NAME_IF_EXISTS:PkgConfig::DESKTOP_APP_JXL>|\$<TARGET_NAME_IF_EXISTS:PkgConfig::DESKTOP_APP_JXL>\n        \$<\$<BOOL:\${DESKTOP_APP_JXL_FOUND}>:brotlidec>\n        \$<\$<BOOL:\${DESKTOP_APP_JXL_FOUND}>:brotlicommon>|' \
             cmake/external/qt/qt_static_plugins/kimageformats/CMakeLists.txt
 
+          # Fix 4: codegen_emoji/CMakeLists.txt - link order and unnecessary plugins
+          python3 -c "
+import os
+filepath = 'Telegram/codegen/codegen/emoji/CMakeLists.txt'
+if os.path.exists(filepath):
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read().replace('\r\n', '\n')
+    target = '    desktop-app::lib_base\n    desktop-app::codegen_common\n    desktop-app::external_qt_static_plugins\n    desktop-app::external_qt'
+    replacement = '    desktop-app::codegen_common\n    desktop-app::external_qt\n    desktop-app::lib_base'
+    if target in content:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content.replace(target, replacement))
+        print('Codegen emoji CMakeLists.txt patched successfully.')
+"
+
           echo "Patches aplicados com sucesso."
 
       - name: Prepare Linux libraries

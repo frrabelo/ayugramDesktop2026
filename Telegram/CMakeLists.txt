@@ -76,8 +76,6 @@ PRIVATE
     tdesktop::td_tde2e
     tdesktop::td_ui
     desktop-app::lib_webrtc
-    desktop-app::lib_base
-    desktop-app::lib_crl
     desktop-app::lib_ui
     desktop-app::lib_tl
     desktop-app::lib_spellcheck
@@ -93,6 +91,8 @@ PRIVATE
     desktop-app::external_kcoreaddons
     desktop-app::external_qt_static_plugins
     desktop-app::external_qt
+    desktop-app::lib_base
+    desktop-app::lib_crl
     desktop-app::external_qr_code_generator
     desktop-app::external_crash_reports
     desktop-app::external_auto_updates
