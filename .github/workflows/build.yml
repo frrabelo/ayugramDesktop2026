@@ -82,10 +82,30 @@ jobs:
           submodules: recursive
           clean: false
 
-      - name: Patch Hime Helper and Codegen CMake
+      - name: Apply compatibility patches
         run: |
-          cp Telegram/SourceFiles/ayu/hime_im_client_helper.cpp cmake/external/qt/qt_static_plugins/hime/hime_im_client/hime_im_client_helper.cpp
-          sed -i 's/desktop-app::external_qt/desktop-app::external_qt\n    brotlidec\n    brotlicommon/g' Telegram/codegen/codegen/emoji/CMakeLists.txt
+          # Fix 1: dispatch/event_epoll.c - Clang 21 -Wsign-conversion
+          # uint16_t dmn_disarmed_events sofre promocao implicita para int
+          # ao aplicar ~ (bitwise NOT), causando falha com -Werror,-Wsign-conversion
+          sed -i 's/dmn->dmn_events \& ~dmn->dmn_disarmed_events/dmn->dmn_events \& ~(uint32_t)dmn->dmn_disarmed_events/' \
+            Telegram/ThirdParty/dispatch/src/event/event_epoll.c
+
+          # Fix 2: hime_im_client/CMakeLists.txt - lib_base PRIVATE -> PUBLIC
+          # O linker GCC nao resolve referencias de biblioteca statica quando
+          # a dependencia eh PRIVATE. PUBLIC propaga lib_base para o executavel final.
+          sed -i '/desktop-app::external_qt_static_plugins_hime_im_client/{
+            n
+            s/PRIVATE/PUBLIC/
+          }' cmake/external/qt/qt_static_plugins/hime/CMakeLists.txt
+          sed -i 's/^PRIVATE$/PUBLIC/' cmake/external/qt/qt_static_plugins/hime/hime_im_client/CMakeLists.txt
+
+          # Fix 3: kimageformats/CMakeLists.txt - adicionar brotlidec e brotlicommon no Linux
+          # libjxl via PkgConfig nao resolve dependencias transitivas de libs estaticas.
+          # libbrotlidec precisa de libbrotlicommon (BrotliSharedDictionary*).
+          sed -i 's|\$<TARGET_NAME_IF_EXISTS:PkgConfig::DESKTOP_APP_JXL>|\$<TARGET_NAME_IF_EXISTS:PkgConfig::DESKTOP_APP_JXL>\n        \$<\$<BOOL:\${DESKTOP_APP_JXL_FOUND}>:brotlidec>\n        \$<\$<BOOL:\${DESKTOP_APP_JXL_FOUND}>:brotlicommon>|' \
+            cmake/external/qt/qt_static_plugins/kimageformats/CMakeLists.txt
+
+          echo "Patches aplicados com sucesso."
 
       - name: Prepare Linux libraries
         run: |
@@ -104,26 +124,21 @@ jobs:
 
       - name: Create AppImage
         run: |
-          # Create AppDir structure
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          
-          # Copy binary and icon
-          # The binary name can be AyuGram or ayugram depending on configuration, we copy what's generated in out/Release
+
           if [ -f "out/Release/AyuGram" ]; then
               cp out/Release/AyuGram AppDir/usr/bin/ayugram
           elif [ -f "out/Release/ayugram" ]; then
               cp out/Release/ayugram AppDir/usr/bin/ayugram
           else
-              # Fallback search if path differs
               find out/ -name "AyuGram" -exec cp {} AppDir/usr/bin/ayugram \;
               find out/ -name "ayugram" -exec cp {} AppDir/usr/bin/ayugram \;
           fi
-          
+
           cp .github/AyuGram.png AppDir/ayugram.png
           cp .github/AyuGram.png AppDir/usr/share/icons/hicolor/256x256/apps/ayugram.png
-          
-          # Write desktop entry
+
           cat <<EOF > AppDir/ayugram.desktop
           [Desktop Entry]
           Type=Application
@@ -132,8 +147,7 @@ jobs:
           Icon=ayugram
           Categories=Network;InstantMessaging;Chat;
           EOF
-          
-          # Write AppRun script
+
           cat <<'EOF' > AppDir/AppRun
           #!/bin/sh
           SELF=$(readlink -f "$0")
@@ -141,12 +155,10 @@ jobs:
           exec "${HERE}/usr/bin/ayugram" "$@"
           EOF
           chmod +x AppDir/AppRun
-          
-          # Get and run appimagetool
+
           wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
-          
-          # Run without FUSE in container
+
           export APPIMAGE_EXTRACT_AND_RUN=1
           ./appimagetool-x86_64.AppImage AppDir AyuGram-x86_64.AppImage
 
