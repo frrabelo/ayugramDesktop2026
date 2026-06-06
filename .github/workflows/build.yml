@@ -82,6 +82,11 @@ jobs:
           submodules: recursive
           clean: false
 
+      - name: Patch Hime Helper and Codegen CMake
+        run: |
+          cp Telegram/SourceFiles/ayu/hime_im_client_helper.cpp cmake/external/qt/qt_static_plugins/hime/hime_im_client/hime_im_client_helper.cpp
+          sed -i 's/desktop-app::external_qt/desktop-app::external_qt\n    brotlidec\n    brotlicommon/g' Telegram/codegen/codegen/emoji/CMakeLists.txt
+
       - name: Prepare Linux libraries
         run: |
           docker pull ghcr.io/telegramdesktop/tdesktop/centos_env:latest
