@@ -96,7 +96,7 @@ void AyuStatusBar::paintEvent(QPaintEvent *e) {
 		p.setPen(QColor(170, 170, 175));
 		int startY = 55;
 		int stepY = 18;
-		int linesToShow = std::min(4, _recentLogs.size());
+		int linesToShow = std::min(4, int(_recentLogs.size()));
 		for (int i = 0; i < linesToShow; ++i) {
 			// Show the most recent logs at the bottom
 			int logIdx = _recentLogs.size() - linesToShow + i;

@@ -123,6 +123,10 @@ set(ayugram_files
         ayu/ayu_infra.h
         ayu/utils/ayu_mapper.cpp
         ayu/utils/ayu_mapper.h
+        ayu/utils/ayu_hardware_optimizer.cpp
+        ayu/utils/ayu_hardware_optimizer.h
+        ayu/utils/ayu_logger.cpp
+        ayu/utils/ayu_logger.h
         ayu/utils/qt_key_modifiers_extended.h
         ayu/utils/telegram_helpers.cpp
         ayu/utils/telegram_helpers.h
