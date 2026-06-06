@@ -82,18 +82,9 @@ jobs:
           submodules: recursive
           clean: false
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install poetry
-        run: |
-          pip install poetry
-
       - name: Prepare Linux libraries
         run: |
-          ./Telegram/build/prepare/linux.sh
+          docker pull ghcr.io/telegramdesktop/tdesktop/centos_env:latest
 
       - name: Build Project inside Docker
         run: |
