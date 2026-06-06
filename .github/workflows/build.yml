@@ -88,6 +88,8 @@ jobs:
 
       - name: Build Project inside Docker
         run: |
+          mkdir -p out
+          sudo chmod -R a+rwx .
           docker run --rm \
               -v "$PWD:/usr/src/tdesktop" \
               ghcr.io/telegramdesktop/tdesktop/centos_env:latest \
