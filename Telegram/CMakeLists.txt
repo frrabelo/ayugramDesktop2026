@@ -76,7 +76,6 @@ PRIVATE
     tdesktop::td_tde2e
     tdesktop::td_ui
     desktop-app::lib_webrtc
-    desktop-app::lib_ui
     desktop-app::lib_tl
     desktop-app::lib_spellcheck
     desktop-app::lib_storage
@@ -91,6 +90,7 @@ PRIVATE
     desktop-app::external_kcoreaddons
     desktop-app::external_qt_static_plugins
     desktop-app::external_qt
+    desktop-app::lib_ui
     desktop-app::lib_base
     desktop-app::lib_crl
     desktop-app::external_qr_code_generator
@@ -99,8 +99,10 @@ PRIVATE
     desktop-app::external_openssl
     desktop-app::external_openal
     desktop-app::external_xxhash
+    -Wl,--start-group
     brotlidec
     brotlicommon
+    -Wl,--end-group
 
     # AyuGram filters
     ayugram::lib_icu
@@ -229,6 +231,10 @@ set(ayugram_files
         ayu/features/message_shot/message_shot_theme_state.h
         ayu/features/forward/ayu_forward.cpp
         ayu/features/forward/ayu_forward.h
+        ayu/features/forward/ayu_queue_manager.cpp
+        ayu/features/forward/ayu_queue_manager.h
+        ayu/features/forward/ayu_status_bar.cpp
+        ayu/features/forward/ayu_status_bar.h
         ayu/features/forward/ayu_sync.cpp
         ayu/features/forward/ayu_sync.h
         ayu/features/translator/ayu_translator.cpp
