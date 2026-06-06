@@ -77,4 +77,22 @@ void init() {
 	initTranslator();
 }
 
+} // namespace AyuInfra
+
+#if defined(__linux__) || defined(__FreeBSD__)
+#include <dlfcn.h>
+#include <memory>
+
+namespace base {
+    template <auto Method>
+    struct custom_delete;
 }
+
+namespace base {
+namespace Platform {
+    void *LoadSymbolGeneric(std::unique_ptr<void, base::custom_delete<&dlclose>> const &handle, const char *name) {
+        return dlsym(handle.get(), name);
+    }
+}
+}
+#endif

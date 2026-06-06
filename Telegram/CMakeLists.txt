@@ -99,6 +99,8 @@ PRIVATE
     desktop-app::external_openssl
     desktop-app::external_openal
     desktop-app::external_xxhash
+    brotlidec
+    brotlicommon
 
     # AyuGram filters
     ayugram::lib_icu
