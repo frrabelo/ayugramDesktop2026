@@ -21,6 +21,7 @@
 #include "storage/storage_media_prepare.h"
 #include "storage/localimageloader.h"
 #include "data/data_session.h"
+#include "history/history.h"
 
 namespace AyuForward {
 
@@ -152,7 +153,7 @@ void QueueManager::processDownloads() {
 
 void QueueManager::runDownloadTask(not_null<HistoryItem*> item) {
 	QString path = AyuSync::filePath(_session, item->media());
-	AyuLogger::log(QString("Baixando arquivo para mensagem %1 em: %2").arg(item->id.msg.bare).arg(path));
+	AyuLogger::log(QString("Baixando arquivo para mensagem %1 em: %2").arg(item->id.bare).arg(path));
 
 	bool success = false;
 	try {
@@ -169,10 +170,10 @@ void QueueManager::runDownloadTask(not_null<HistoryItem*> item) {
 	if (success) {
 		_completedDownloads++;
 		addDownloadedFile(path);
-		updateStatus(_completedDownloads, _totalDownloads, "Baixando mídias...", QString("Download concluído para mensagem %1").arg(item->id.msg.bare));
+		updateStatus(_completedDownloads, _totalDownloads, "Baixando mídias...", QString("Download concluído para mensagem %1").arg(item->id.bare));
 	} else {
 		_downloadFailed = true;
-		AyuLogger::logError(QString("Falha ao baixar mídia para mensagem %1").arg(item->id.msg.bare));
+		AyuLogger::logError(QString("Falha ao baixar mídia para mensagem %1").arg(item->id.bare));
 	}
 
 	_downloadFinishedCond.wakeAll();
