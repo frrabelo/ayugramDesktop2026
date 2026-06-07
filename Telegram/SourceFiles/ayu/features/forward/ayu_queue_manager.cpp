@@ -19,6 +19,8 @@
 #include "ui/chat/attach/attach_prepare.h"
 #include "styles/style_boxes.h"
 #include "storage/storage_media_prepare.h"
+#include "storage/localimageloader.h"
+#include "data/data_session.h"
 
 namespace AyuForward {
 
