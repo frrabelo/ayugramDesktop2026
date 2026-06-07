@@ -7,6 +7,7 @@
 #pragma once
 
 #include "history/history_item.h"
+#include "api/api_common.h"
 #include "main/main_session.h"
 #include "ayu/features/forward/ayu_status_bar.h"
 #include "ayu/utils/ayu_hardware_optimizer.h"
