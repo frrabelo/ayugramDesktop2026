@@ -61,7 +61,7 @@ jobs:
 
       - name: Build Project
         env:
-          CL: /MP2
+          CL: '/FS /MP2'
         run: |
           cd out
           msbuild Telegram.sln /p:Configuration=Release /p:Platform=x64 /m
@@ -195,3 +195,4 @@ jobs:
         with:
           name: AyuGram-Linux-AppImage
           path: AyuGram-x86_64.AppImage
+
