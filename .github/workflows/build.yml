@@ -17,8 +17,20 @@ jobs:
   build-windows:
     name: Build Windows x64
     runs-on: windows-2022
-    if: false
     steps:
+      - name: Free Disk Space (Windows)
+        shell: pwsh
+        run: |
+          Write-Host "Verificando espaco em disco inicial..."
+          Get-Volume
+          if (Test-Path "C:\Microsoft\AndroidNDK") { Remove-Item -Recurse -Force C:\Microsoft\AndroidNDK -ErrorAction SilentlyContinue }
+          if (Test-Path "C:\Program Files (x86)\Android") { Remove-Item -Recurse -Force "C:\Program Files (x86)\Android" -ErrorAction SilentlyContinue }
+          if (Test-Path "C:\Program Files\Android") { Remove-Item -Recurse -Force "C:\Program Files\Android" -ErrorAction SilentlyContinue }
+          if (Test-Path "C:\hostedtoolcache\windows\CodeQL") { Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\CodeQL" -ErrorAction SilentlyContinue }
+          if (Test-Path "C:\Program Files\LLVM") { Remove-Item -Recurse -Force "C:\Program Files\LLVM" -ErrorAction SilentlyContinue }
+          Write-Host "Verificando espaco final..."
+          Get-Volume
+
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
@@ -63,6 +75,7 @@ jobs:
   build-linux:
     name: Build Linux x64 (AppImage)
     runs-on: ubuntu-22.04
+    if: false
     env:
       LTO: ""
     steps:
