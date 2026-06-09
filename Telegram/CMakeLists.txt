@@ -99,14 +99,20 @@ PRIVATE
     desktop-app::external_openssl
     desktop-app::external_openal
     desktop-app::external_xxhash
-    -Wl,--start-group
-    brotlidec
-    brotlicommon
-    -Wl,--end-group
 
     # AyuGram filters
     ayugram::lib_icu
 )
+
+if (LINUX)
+    target_link_libraries(Telegram
+    PRIVATE
+        -Wl,--start-group
+        brotlidec
+        brotlicommon
+        -Wl,--end-group
+    )
+endif()
 
 set(ayugram_files
         ayu/ayu_worker.cpp
