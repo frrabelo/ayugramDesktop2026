@@ -65,6 +65,7 @@ jobs:
         env:
           CL: '/FS /MP2'
           _CL_: '/Z7'
+          PreferredToolArchitecture: 'x64'
         run: |
           cd out
           msbuild Telegram.sln /p:Configuration=Release /p:Platform=x64 /m
