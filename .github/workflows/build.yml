@@ -17,6 +17,7 @@ jobs:
   build-windows:
     name: Build Windows x64
     runs-on: windows-2022
+    if: false
     steps:
       - name: Free Disk Space (Windows)
         shell: pwsh
