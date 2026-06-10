@@ -19,6 +19,7 @@ jobs:
   build-windows:
     name: Build Windows x64
     runs-on: windows-2022
+    if: false
     steps:
       - name: Free Disk Space (Windows)
         shell: pwsh
@@ -79,7 +80,6 @@ jobs:
   build-linux:
     name: Build Linux x64 (AppImage)
     runs-on: ubuntu-22.04
-    if: false
     env:
       LTO: ""
     steps:
