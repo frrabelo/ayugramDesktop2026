@@ -154,49 +154,23 @@ jobs:
               -D TDESKTOP_API_ID=2040 \
               -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
 
-      - name: Create AppImage
+      - name: Create Tarball
         run: |
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-
+          mkdir -p release_bin
           if [ -f "out/Release/AyuGram" ]; then
-              cp out/Release/AyuGram AppDir/usr/bin/ayugram
+              cp out/Release/AyuGram release_bin/ayugram
           elif [ -f "out/Release/ayugram" ]; then
-              cp out/Release/ayugram AppDir/usr/bin/ayugram
+              cp out/Release/ayugram release_bin/ayugram
           else
-              find out/ -name "AyuGram" -exec cp {} AppDir/usr/bin/ayugram \;
-              find out/ -name "ayugram" -exec cp {} AppDir/usr/bin/ayugram \;
+              find out/ -name "AyuGram" -exec cp {} release_bin/ayugram \;
+              find out/ -name "ayugram" -exec cp {} release_bin/ayugram \;
           fi
+          chmod +x release_bin/ayugram
+          tar -czf ayugram-linux-x64.tar.gz -C release_bin ayugram
 
-          cp .github/AyuGram.png AppDir/ayugram.png
-          cp .github/AyuGram.png AppDir/usr/share/icons/hicolor/256x256/apps/ayugram.png
-
-          cat <<EOF > AppDir/ayugram.desktop
-          [Desktop Entry]
-          Type=Application
-          Name=AyuGram
-          Exec=ayugram
-          Icon=ayugram
-          Categories=Network;InstantMessaging;Chat;
-          EOF
-
-          cat <<'EOF' > AppDir/AppRun
-          #!/bin/sh
-          SELF=$(readlink -f "$0")
-          HERE=$(dirname "$SELF")
-          exec "${HERE}/usr/bin/ayugram" "$@"
-          EOF
-          chmod +x AppDir/AppRun
-
-          wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
-
-          export APPIMAGE_EXTRACT_AND_RUN=1
-          ./appimagetool-x86_64.AppImage AppDir AyuGram-x86_64.AppImage
-
-      - name: Upload Linux AppImage Artifact
+      - name: Upload Linux Tarball Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AyuGram-Linux-AppImage
-          path: AyuGram-x86_64.AppImage
+          name: AyuGram-Linux-x64
+          path: ayugram-linux-x64.tar.gz
 

@@ -105,13 +105,26 @@ PRIVATE
 )
 
 if (LINUX)
-    target_link_libraries(Telegram
-    PRIVATE
-        -Wl,--start-group
-        brotlidec
-        brotlicommon
-        -Wl,--end-group
-    )
+    find_library(BROTLIDEC_LIBRARY NAMES libbrotlidec.a brotlidec PATHS /usr/local/lib64 /usr/local/lib /usr/lib64 /usr/lib)
+    find_library(BROTLICOMMON_LIBRARY NAMES libbrotlicommon.a brotlicommon PATHS /usr/local/lib64 /usr/local/lib /usr/lib64 /usr/lib)
+
+    if (BROTLIDEC_LIBRARY AND BROTLICOMMON_LIBRARY)
+        target_link_libraries(Telegram
+        PRIVATE
+            -Wl,--start-group
+            ${BROTLIDEC_LIBRARY}
+            ${BROTLICOMMON_LIBRARY}
+            -Wl,--end-group
+        )
+    else()
+        target_link_libraries(Telegram
+        PRIVATE
+            -Wl,--start-group
+            brotlidec
+            brotlicommon
+            -Wl,--end-group
+        )
+    endif()
 endif()
 
 set(ayugram_files
