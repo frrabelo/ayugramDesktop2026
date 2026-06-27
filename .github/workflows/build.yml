@@ -1,5 +1,8 @@
 name: Build AyuGram
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -173,8 +176,12 @@ jobs:
           # Compactar em .tar.gz
           tar -czvf ayugram-desktop-linux-x64.tar.gz -C ayugram-desktop-linux ayugram
 
-      - name: Upload Linux Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: AyuGram-Linux-x64
-          path: ayugram-desktop-linux-x64.tar.gz
+      - name: Create or Update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "latest-linux" ayugram-desktop-linux-x64.tar.gz \
+            --title "AyuGram Linux Latest" \
+            --notes "Build compilado automaticamente via GitHub Actions em $(date +'%Y-%m-%d %H:%M:%S')" \
+            --prerelease \
+            --clobber
