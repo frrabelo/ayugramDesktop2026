@@ -180,8 +180,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          gh release delete "latest-linux" --yes --cleanup-tag || true
           gh release create "latest-linux" ayugram-desktop-linux-x64.tar.gz \
             --title "AyuGram Linux Latest" \
             --notes "Build compilado automaticamente via GitHub Actions em $(date +'%Y-%m-%d %H:%M:%S')" \
-            --prerelease \
-            --clobber
+            --prerelease
