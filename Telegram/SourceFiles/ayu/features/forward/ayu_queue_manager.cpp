@@ -6,6 +6,7 @@
 // Copyright @Radolyn, 2026
 #include "ayu/features/forward/ayu_queue_manager.h"
 #include "ayu/features/forward/ayu_sync.h"
+#include "ayu/features/forward/ayu_forward.h"
 #include "ayu/utils/ayu_logger.h"
 #include "ayu/utils/telegram_helpers.h"
 
@@ -92,14 +93,15 @@ void QueueManager::updateStatus(int current, int total, const QString &text, con
 	if (!logText.isEmpty()) {
 		AyuLogger::log(logText);
 	}
-	if (_statusBar) {
-		crl::on_main([=] {
-			_statusBar->setProgress(current, total, text);
+	const auto peerId = _action.history->peer->id;
+	crl::on_main([=] {
+		if (auto bar = AyuForward::getStatusBar(peerId)) {
+			bar->setProgress(current, total, text);
 			if (!logText.isEmpty()) {
-				_statusBar->addLogLine(logText);
+				bar->addLogLine(logText);
 			}
-		});
-	}
+		}
+	});
 }
 
 void QueueManager::runQueue() {

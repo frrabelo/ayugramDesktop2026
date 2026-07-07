@@ -25,7 +25,7 @@ AyuStatusBar::AyuStatusBar(QWidget *parent, std::function<void()> resizeCallback
 AyuStatusBar::~AyuStatusBar() = default;
 
 int AyuStatusBar::desiredHeight() const {
-	return _expanded ? 140 : 45;
+	return _expanded ? 120 : 66;
 }
 
 void AyuStatusBar::updateHeight() {
@@ -62,90 +62,88 @@ void AyuStatusBar::paintEvent(QPaintEvent *e) {
 	QPainter p(this);
 	p.setRenderHint(QPainter::Antialiasing);
 
-	// Background (glassmorphism/dark tone)
-	p.fillRect(rect(), QColor(26, 26, 30, 245));
+	// Background (glassmorphism/dark tone matching the layout)
+	p.fillRect(rect(), QColor(26, 32, 40, 255));
 
-	// Top and bottom subtle border lines
-	p.setPen(QColor(255, 255, 255, 25));
-	p.drawLine(0, 0, width(), 0);
-	p.drawLine(0, height() - 1, width(), height() - 1);
+	// Full white border with margin as shown in the example images
+	QRect borderRect = rect().adjusted(10, 5, -10, -5);
+	p.setPen(QPen(Qt::white, 2));
+	p.setBrush(Qt::NoBrush);
+	p.drawRect(borderRect);
 
-	// Draw Title
-	p.setPen(QColor(255, 255, 255));
+	// Draw Title "Status do sistema:"
+	p.setPen(Qt::white);
 	QFont titleFont = p.font();
 	titleFont.setBold(true);
 	titleFont.setPointSize(10);
 	p.setFont(titleFont);
-	p.drawText(15, 25, "Status do Sistema:");
+	p.drawText(20, 24, "Status do sistema:");
 
-	// Progress information
-	QString progressStr = "";
-	if (_totalProgress > 0) {
-		progressStr = QString(" (%1/%2)").arg(_currentProgress).arg(_totalProgress);
-	}
-	QString statusFullText = _statusText + progressStr;
+	// Draw Log lines
+	p.setPen(QColor(220, 220, 225));
+	QFont textFont = p.font();
+	textFont.setBold(false);
+	textFont.setPointSize(9);
+	p.setFont(textFont);
 
-	titleFont.setBold(false);
-	titleFont.setPointSize(9);
-	p.setFont(titleFont);
-	p.setPen(QColor(200, 200, 205));
-	p.drawText(155, 25, statusFullText);
+	int startY = 40;
+	int stepY = 16;
 
-	// Draw Log lines if expanded
-	if (_expanded) {
-		p.setPen(QColor(170, 170, 175));
-		int startY = 55;
-		int stepY = 18;
-		int linesToShow = std::min(4, int(_recentLogs.size()));
+	if (!_recentLogs.isEmpty()) {
+		int linesToShow = _expanded ? std::min(5, int(_recentLogs.size())) : std::min(2, int(_recentLogs.size()));
 		for (int i = 0; i < linesToShow; ++i) {
-			// Show the most recent logs at the bottom
 			int logIdx = _recentLogs.size() - linesToShow + i;
 			p.drawText(20, startY + i * stepY, _recentLogs[logIdx]);
+		}
+	} else {
+		// Fallback: show progress status if logs list is empty
+		p.drawText(20, startY, _statusText);
+		if (_totalProgress > 0) {
+			p.drawText(20, startY + stepY, QString("Progresso: %1 / %2").arg(_currentProgress).arg(_totalProgress));
 		}
 	}
 
 	// Layout Control Rects (interactive buttons)
-	int btnWidth = 60;
-	int btnHeight = 25;
-	int pad = 10;
+	int btnWidth = 50;
+	int btnHeight = 42;
+	int pad = 20;
 
-	// Logs Button
-	_logsRect = QRect(width() - btnWidth * 2 - pad * 2, (45 - btnHeight) / 2, btnWidth, btnHeight);
+	// Logs Button (labeled "Log's" on the right side)
+	_logsRect = QRect(width() - btnWidth - pad, (height() - btnHeight) / 2, btnWidth, btnHeight);
 	p.setPen(Qt::NoPen);
-	p.setBrush(QColor(41, 121, 255, 50)); // Soft translucent blue
-	p.drawRoundedRect(_logsRect, 4, 4);
+	p.setBrush(QColor(100, 110, 120, 180)); // Grayish background
+	p.drawRoundedRect(_logsRect, 8, 8);
 
-	p.setPen(QColor(41, 121, 255));
+	p.setPen(Qt::white);
 	QFont btnFont = p.font();
-	btnFont.setBold(true);
+	btnFont.setBold(false);
+	btnFont.setPointSize(9);
 	p.setFont(btnFont);
-	p.drawText(_logsRect, Qt::AlignCenter, "LOGS");
+	p.drawText(_logsRect, Qt::AlignCenter, "Log's");
 
-	// Expand Button (with vertical arrows)
-	_expandRect = QRect(width() - btnWidth - pad, (45 - btnHeight) / 2, btnWidth, btnHeight);
-	p.setBrush(QColor(255, 255, 255, 20));
-	p.drawRoundedRect(_expandRect, 4, 4);
-
-	p.setPen(QColor(220, 220, 225));
+	// Expand Button (arrows to the left of Log's button)
+	_expandRect = QRect(width() - btnWidth - pad - 30, (height() - btnHeight) / 2, 20, btnHeight);
+	
+	// Draw custom vertical stacked arrows
 	int centerX = _expandRect.center().x();
 	int centerY = _expandRect.center().y();
 
-	// Draw custom vertical arrows (chevron style up/down)
-	QPainterPath arrowPath;
-	if (_expanded) {
-		// Up arrow
-		arrowPath.moveTo(centerX - 6, centerY + 3);
-		arrowPath.lineTo(centerX, centerY - 3);
-		arrowPath.lineTo(centerX + 6, centerY + 3);
-	} else {
-		// Down arrow
-		arrowPath.moveTo(centerX - 6, centerY - 3);
-		arrowPath.lineTo(centerX, centerY + 3);
-		arrowPath.lineTo(centerX + 6, centerY - 3);
-	}
 	p.setBrush(Qt::NoBrush);
-	p.setPen(QPen(QColor(220, 220, 225), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-	p.drawPath(arrowPath);
+	p.setPen(QPen(Qt::white, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+
+	// Up arrow
+	QPainterPath upArrow;
+	upArrow.moveTo(centerX - 5, centerY - 3);
+	upArrow.lineTo(centerX, centerY - 9);
+	upArrow.lineTo(centerX + 5, centerY - 3);
+	p.drawPath(upArrow);
+
+	// Down arrow
+	QPainterPath downArrow;
+	downArrow.moveTo(centerX - 5, centerY + 3);
+	downArrow.lineTo(centerX, centerY + 9);
+	downArrow.lineTo(centerX + 5, centerY + 3);
+	p.drawPath(downArrow);
 }
 
 void AyuStatusBar::mousePressEvent(QMouseEvent *e) {

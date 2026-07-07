@@ -41,6 +41,11 @@ void unregisterStatusBar(const PeerId &id) {
 	activeStatusBars.erase(id);
 }
 
+AyuStatusBar* getStatusBar(const PeerId &id) {
+	const auto it = activeStatusBars.find(id);
+	return (it != activeStatusBars.end()) ? it->second : nullptr;
+}
+
 bool isForwarding(const PeerId &id) {
 	const auto fwState = forwardStates.find(id);
 	if (id.value && fwState != forwardStates.end()) {
@@ -296,7 +301,9 @@ void intelligentForward(
 	chunks.push_back(currentChunk);
 
 	auto state = std::make_shared<ForwardState>(chunks.size());
+	state->totalMessages = items.size();
 	forwardStates[peer->id] = state;
+	state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
 
 
 	for (const auto &chunk : chunks) {
@@ -341,9 +348,10 @@ void forwardMessages(
 		state = std::make_shared<ForwardState>(*forwardStates[peer->id]);
 	} else {
 		state = std::make_shared<ForwardState>(1);
+		state->totalMessages = items.size();
+		forwardStates[peer->id] = state;
+		state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
 	}
-
-	forwardStates[peer->id] = state;
 
 	AyuStatusBar* bar = nullptr;
 	const auto it = activeStatusBars.find(peer->id);

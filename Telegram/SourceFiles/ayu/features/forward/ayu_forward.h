@@ -17,6 +17,7 @@ void cancelForward(const PeerId &id, const Main::Session &session);
 std::pair<QString, QString> stateName(const PeerId &id);
 void registerStatusBar(const PeerId &id, AyuStatusBar *bar);
 void unregisterStatusBar(const PeerId &id);
+AyuStatusBar* getStatusBar(const PeerId &id);
 
 class ForwardState
 {
