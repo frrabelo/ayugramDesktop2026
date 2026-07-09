@@ -8070,6 +8070,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_SupportBoxReceiveBadgeInfo" = "After payment verification, you will receive a unique badge that will be displayed on your profile and visible to other users.";
 "ayu_CrashReporting" = "Crash Reporting";
 "ayu_CrashReportingDescription" = "When this option is enabled, you'll be prompted to send a report after the app crashes. You can decide whether to send it or not.";
+"ayu_DisableAutoUpdate" = "Disable Auto-Updates";
+"ayu_DisableAutoUpdateDescription" = "Completely disable automatic application updates.";
 "ayu_ResetSettings" = "Reset Settings";
 "ayu_ResetSettingsConfirmation" = "Are you sure you want to reset **all** AyuGram preferences to their defaults?";
 "ayu_DisableColorfulCover" = "Disable adaptive color";

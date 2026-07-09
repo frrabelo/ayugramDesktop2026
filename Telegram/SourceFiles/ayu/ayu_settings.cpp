@@ -1036,6 +1036,12 @@ void AyuSettings::setCrashReporting(bool val) {
 	save();
 }
 
+void AyuSettings::setDisableAutoUpdate(bool val) {
+	if (_disableAutoUpdate.current() == val) return;
+	_disableAutoUpdate = val;
+	save();
+}
+
 void AyuSettings::setAvatarCorners(int val) {
 	if (_avatarCorners.current() == val) return;
 	_avatarCorners = val;
@@ -1140,6 +1146,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"adaptiveCoverColor", s._adaptiveCoverColor.current()},
 		{"improveLinkPreviews", s._improveLinkPreviews.current()},
 		{"crashReporting", s._crashReporting.current()},
+		{"disableAutoUpdate", s._disableAutoUpdate.current()},
 		{"avatarCorners", s._avatarCorners.current()},
 		{"singleCornerRadius", s._singleCornerRadius.current()},
 		{"messageShotSettings", s._messageShotSettings}
@@ -1240,6 +1247,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._adaptiveCoverColor = j.value("adaptiveCoverColor", defaults._adaptiveCoverColor.current());
 	s._improveLinkPreviews = j.value("improveLinkPreviews", defaults._improveLinkPreviews.current());
 	s._crashReporting = j.value("crashReporting", defaults._crashReporting.current());
+	s._disableAutoUpdate = j.value("disableAutoUpdate", defaults._disableAutoUpdate.current());
 	s._avatarCorners = j.value("avatarCorners", defaults._avatarCorners.current());
 	s._singleCornerRadius = j.value("singleCornerRadius", defaults._singleCornerRadius.current());
 

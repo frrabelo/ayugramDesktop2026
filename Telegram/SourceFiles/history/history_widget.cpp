@@ -7233,8 +7233,7 @@ void HistoryWidget::updateControlsGeometry() {
 	moveFieldControls();
 
 	_topBars->move(tabsLeftSkip, _topBar->bottomNoMargins()
-		+ (_subsectionTabs ? _subsectionTabs->topSkip() : 0)
-		+ (_ayuStatusBar ? _ayuStatusBar->desiredHeight() : 0));
+		+ (_subsectionTabs ? _subsectionTabs->topSkip() : 0));
 	const auto groupCallTop = 0;
 	if (_groupCallBar) {
 		_groupCallBar->move(0, groupCallTop);
@@ -7279,10 +7278,7 @@ void HistoryWidget::updateControlsGeometry() {
 	if (_businessBotStatus) {
 		_businessBotStatus->bar().move(tabsLeftSkip, businessBotTop);
 	}
-	if (_ayuStatusBar) {
-		_ayuStatusBar->move(tabsLeftSkip, _topBar->bottomNoMargins());
-		_ayuStatusBar->resizeToWidth(innerWidth);
-	}
+
 	const auto scrollAreaTop = _topBars->y()
 		+ businessBotTop
 		+ (_businessBotStatus ? _businessBotStatus->bar().height() : 0);
@@ -7322,6 +7318,11 @@ void HistoryWidget::updateControlsGeometry() {
 		_topBar->bottomNoMargins(),
 		width - topShadowLeft - topShadowRight,
 		st::lineWidth);
+
+	if (_ayuStatusBar) {
+		_ayuStatusBar->move(tabsLeftSkip, scrollAreaTop + _scroll->height());
+		_ayuStatusBar->resizeToWidth(innerWidth);
+	}
 }
 
 void HistoryWidget::itemRemoved(not_null<const HistoryItem*> item) {

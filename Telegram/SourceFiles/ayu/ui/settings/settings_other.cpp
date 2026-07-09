@@ -190,6 +190,16 @@ void BuildCrashReporting(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	});
 	builder.addSkip();
 	builder.addDividerText(tr::ayu_CrashReportingDescription());
+
+	ayu.addSettingToggle({
+		.id = u"ayu/disableAutoUpdate"_q,
+		.title = tr::ayu_DisableAutoUpdate(),
+		.getter = &AyuSettings::disableAutoUpdate,
+		.setter = &AyuSettings::setDisableAutoUpdate,
+		.icon = { &st::menuIconRestore },
+	});
+	builder.addSkip();
+	builder.addDividerText(tr::ayu_DisableAutoUpdateDescription());
 #endif
 }
 

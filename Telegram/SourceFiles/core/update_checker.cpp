@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/sections/settings_advanced.h"
 #include "settings/settings_intro.h"
 #include "ui/layers/box_content.h"
+#include "ayu/ayu_settings.h"
 
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
@@ -1221,6 +1222,10 @@ void Updater::stop() {
 }
 
 void Updater::start(bool forceWait) {
+	if (AyuSettings::getInstance().disableAutoUpdate()) {
+		return;
+	}
+
 	if (cExeName().isEmpty()) {
 		return;
 	}
@@ -1441,6 +1446,10 @@ rpl::producer<> UpdateChecker::ready() const {
 }
 
 void UpdateChecker::start(bool forceWait) {
+	if (AyuSettings::getInstance().disableAutoUpdate()) {
+		return;
+	}
+
 	_updater->start(forceWait);
 }
 
