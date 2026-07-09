@@ -83,6 +83,7 @@ jobs:
   build-linux:
     name: Build Linux x64 (AppImage)
     runs-on: ubuntu-22.04
+    if: contains(github.event.head_commit.message, '[build-linux]')
     env:
       LTO: ""
     steps:
