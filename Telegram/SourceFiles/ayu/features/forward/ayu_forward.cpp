@@ -34,6 +34,13 @@ std::unordered_map<PeerId, std::shared_ptr<ForwardState>> forwardStates;
 std::unordered_map<PeerId, AyuStatusBar*> activeStatusBars;
 
 void registerStatusBar(const PeerId &id, AyuStatusBar *bar) {
+	for (auto it = activeStatusBars.begin(); it != activeStatusBars.end(); ) {
+		if (it->second == bar) {
+			it = activeStatusBars.erase(it);
+		} else {
+			++it;
+		}
+	}
 	activeStatusBars[id] = bar;
 }
 
@@ -115,9 +122,10 @@ std::pair<QString, QString> stateName(const PeerId &id) {
 void ForwardState::updateBottomBar(const Main::Session &session, const PeerId *peer, const State &st) {
 	state = st;
 	auto peerCopy = *peer;
-	crl::on_main([&, peerCopy]
+	auto sessionPtr = &session;
+	crl::on_main([sessionPtr, peerCopy]
 	{
-		session.changes().peerUpdated(session.data().peer(peerCopy), Data::PeerUpdate::Flag::Rights);
+		sessionPtr->changes().peerUpdated(sessionPtr->data().peer(peerCopy), Data::PeerUpdate::Flag::Rights);
 	});
 }
 
@@ -324,6 +332,7 @@ void intelligentForward(
 	}
 
 	state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
+	forwardStates.erase(peer->id);
 }
 
 void forwardMessages(
@@ -363,6 +372,7 @@ void forwardMessages(
 	manager.runQueue();
 
 	state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
+	forwardStates.erase(peer->id);
 }
 } // namespace AyuForward
 

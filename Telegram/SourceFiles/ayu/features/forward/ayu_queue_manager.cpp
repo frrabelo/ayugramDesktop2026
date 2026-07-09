@@ -104,87 +104,6 @@ void QueueManager::updateStatus(int current, int total, const QString &text, con
 	});
 }
 
-void QueueManager::runQueue() {
-	AyuLogger::log("Iniciando processamento da fila de encaminhamento...");
-
-	// 1. Prepare download queue
-	for (const auto &item : _items) {
-		if (mediaDownloadable(item->media())) {
-			_downloadQueue.push_back(item);
-		}
-	}
-
-	_totalDownloads = _downloadQueue.size();
-	_completedDownloads = 0;
-	_activeDownloads = 0;
-
-	if (_totalDownloads > 0) {
-		updateStatus(0, _totalDownloads, "Baixando mídias...", QString("Iniciando download de %1 arquivos em paralelo...").arg(_totalDownloads));
-		processDownloads();
-
-		// Wait for all downloads to finish
-		QMutexLocker locker(&_downloadMutex);
-		while (_completedDownloads < _totalDownloads && !_downloadFailed) {
-			_downloadFinishedCond.wait(&_downloadMutex);
-		}
-
-		if (_downloadFailed) {
-			updateStatus(0, 0, "Falha no download", "Cancelando encaminhamento devido a falha no download de mídia.");
-			return;
-		}
-		AyuLogger::log("Todos os downloads foram concluídos.");
-	}
-
-	// 2. Process uploads sequentially to preserve order
-	processUploads();
-}
-
-void QueueManager::processDownloads() {
-	QMutexLocker locker(&_downloadMutex);
-	while (_activeDownloads < _maxParallelDownloads && _completedDownloads + _activeDownloads < _totalDownloads) {
-		int index = _completedDownloads + _activeDownloads;
-		not_null<HistoryItem*> item = _downloadQueue[index];
-		_activeDownloads++;
-
-		auto task = [this, item]() {
-			runDownloadTask(item);
-		};
-		QThreadPool::globalInstance()->start(new DownloadRunnable(task));
-	}
-}
-
-void QueueManager::runDownloadTask(not_null<HistoryItem*> item) {
-	QString path = AyuSync::filePath(_session, item->media());
-	AyuLogger::log(QString("Baixando arquivo para mensagem %1 em: %2").arg(item->id.bare).arg(path));
-
-	bool success = false;
-	try {
-		std::vector<not_null<HistoryItem*>> singleItemVec = { item };
-		AyuSync::loadDocuments(_session, singleItemVec);
-		success = QFile::exists(path) && (QFile(path).size() > 0);
-	} catch (...) {
-		success = false;
-	}
-
-	QMutexLocker locker(&_downloadMutex);
-	_activeDownloads--;
-
-	if (success) {
-		_completedDownloads++;
-		addDownloadedFile(path);
-		updateStatus(_completedDownloads, _totalDownloads, "Baixando mídias...", QString("Download concluído para mensagem %1").arg(item->id.bare));
-	} else {
-		_downloadFailed = true;
-		AyuLogger::logError(QString("Falha ao baixar mídia para mensagem %1").arg(item->id.bare));
-	}
-
-	_downloadFinishedCond.wakeAll();
-
-	// Trigger next download in queue
-	locker.unlock();
-	processDownloads();
-}
-
 static Ui::PreparedList prepareMedia(not_null<Main::Session*> session,
 									 const std::vector<not_null<HistoryItem*>> &items,
 									 int &i,
@@ -289,14 +208,63 @@ static void sendMedia(
 	}
 }
 
-void QueueManager::processUploads() {
+void QueueManager::runQueue() {
+	AyuLogger::log("Iniciando processamento da fila de encaminhamento consecutiva...");
+
 	int totalMessages = _items.size();
-	updateStatus(0, totalMessages, "Enviando mensagens...", "Iniciando upload de mensagens...");
+	updateStatus(0, totalMessages, "Processando...", "Iniciando encaminhamento...");
 
 	for (int i = 0; i < totalMessages; i++) {
 		const auto item = _items[i];
-		updateStatus(i, totalMessages, "Enviando mensagens...", QString("Enviando mensagem %1 de %2").arg(i + 1).arg(totalMessages));
+		updateStatus(i, totalMessages, "Processando...", QString("Processando mensagem %1 de %2").arg(i + 1).arg(totalMessages));
 
+		// Encontrar todos os itens deste grupo se fizer parte de um álbum
+		std::vector<not_null<HistoryItem*>> groupItems;
+		groupItems.push_back(item);
+		const auto groupId = item->groupId();
+		if (groupId.value) {
+			for (size_t k = i + 1; k < totalMessages; ++k) {
+				const auto nextItem = _items[k];
+				if (nextItem->groupId() != groupId) {
+					break;
+				}
+				groupItems.push_back(nextItem);
+			}
+		}
+
+		// 1. Download all media in this group/album first
+		std::vector<QString> mediaPaths;
+		bool downloadSuccess = true;
+		for (const auto &gItem : groupItems) {
+			if (mediaDownloadable(gItem->media())) {
+				QString path = AyuSync::filePath(_session, gItem->media());
+				mediaPaths.push_back(path);
+				AyuLogger::log(QString("Baixando mídia para mensagem %1 em: %2").arg(gItem->id.bare).arg(path));
+
+				try {
+					std::vector<not_null<HistoryItem*>> singleItemVec = { gItem };
+					AyuSync::loadDocuments(_session, singleItemVec);
+					if (!(QFile::exists(path) && (QFile(path).size() > 0))) {
+						downloadSuccess = false;
+					}
+				} catch (...) {
+					downloadSuccess = false;
+				}
+
+				if (!downloadSuccess) {
+					AyuLogger::logError(QString("Falha ao baixar mídia para mensagem %1.").arg(gItem->id.bare));
+					break;
+				}
+				AyuLogger::log(QString("Download concluído para mensagem %1").arg(gItem->id.bare));
+			}
+		}
+
+		if (!downloadSuccess) {
+			updateStatus(i, totalMessages, "Falha no download", QString("Erro ao baixar mídia da mensagem %1").arg(i + 1));
+			return;
+		}
+
+		// 2. Upload the message
 		auto extractedText = extractText(item);
 		if (extractedText.empty() && !mediaDownloadable(item->media())) {
 			continue;
@@ -310,66 +278,66 @@ void QueueManager::processUploads() {
 			message.textWithTags = extractedText;
 		}
 
-		QString mediaPath = mediaDownloadable(item->media()) ? AyuSync::filePath(_session, item->media()) : "";
-
+		int startIndex = i;
 		try {
 			if (!mediaDownloadable(item->media())) {
 				AyuSync::sendMessageSync(_session, std::move(message));
 			} else if (const auto media = item->media()) {
 				if (media->poll()) {
 					AyuSync::sendMessageSync(_session, std::move(message));
-					continue;
-				}
+				} else {
+					std::vector<not_null<Data::Media*>> groupMedia;
+					auto preparedMedia = prepareMedia(_session, _items, i, groupMedia);
 
-				std::vector<not_null<Data::Media*>> groupMedia;
-				// i will be incremented in prepareMedia if there are group items
-				int startIndex = i;
-				auto preparedMedia = prepareMedia(_session, _items, i, groupMedia);
+					Ui::SendFilesWay way;
+					way.setGroupFiles(true);
+					way.setSendImagesAsPhotos(false);
+					for (const auto &media2 : groupMedia) {
+						if (media2->photo()) {
+							way.setSendImagesAsPhotos(true);
+							break;
+						}
+					}
 
-				Ui::SendFilesWay way;
-				way.setGroupFiles(true);
-				way.setSendImagesAsPhotos(false);
-				for (const auto &media2 : groupMedia) {
-					if (media2->photo()) {
-						way.setSendImagesAsPhotos(true);
-						break;
+					// Remove unfinished files
+					for (int j = preparedMedia.files.size() - 1; j >= 0; j--) {
+						auto &file = preparedMedia.files[j];
+						QFile f(file.path);
+						if ((groupMedia[j]->photo() && f.size() < groupMedia[j]->photo()->imageByteSize(Data::PhotoSize::Large)) ||
+							(groupMedia[j]->document() && f.size() < groupMedia[j]->document()->size)) {
+							preparedMedia.files.erase(preparedMedia.files.begin() + j);
+						}
+					}
+
+					if (!preparedMedia.files.empty()) {
+						auto groups = Ui::DivideByGroups(std::move(preparedMedia), way, _action.history->peer->slowmodeApplied());
+						auto bundle = Ui::PrepareFilesBundle(std::move(groups), way, false);
+						sendMedia(_session, bundle, media, std::move(message), way.sendImagesAsPhotos());
 					}
 				}
-
-				// remove unfinished files
-				for (int j = preparedMedia.files.size() - 1; j >= 0; j--) {
-					auto &file = preparedMedia.files[j];
-					QFile f(file.path);
-					if ((groupMedia[j]->photo() && f.size() < groupMedia[j]->photo()->imageByteSize(Data::PhotoSize::Large)) ||
-						(groupMedia[j]->document() && f.size() < groupMedia[j]->document()->size)) {
-						preparedMedia.files.erase(preparedMedia.files.begin() + j);
-					}
-				}
-
-				if (!preparedMedia.files.empty()) {
-					auto groups = Ui::DivideByGroups(std::move(preparedMedia), way, _action.history->peer->slowmodeApplied());
-					auto bundle = Ui::PrepareFilesBundle(std::move(groups), way, false);
-					sendMedia(_session, bundle, media, std::move(message), way.sendImagesAsPhotos());
-				}
 			}
-
-			// Delete temporary files for the sent items immediately
-			QMutexLocker locker(&_filesMutex);
-			if (!mediaPath.isEmpty() && QFile::exists(mediaPath)) {
-				QFile::remove(mediaPath);
-				// remove from downloaded list so we don't try to delete it again
-				auto it = std::find(_downloadedFiles.begin(), _downloadedFiles.end(), mediaPath);
-				if (it != _downloadedFiles.end()) {
-					_downloadedFiles.erase(it);
-				}
-				AyuLogger::log(QString("Upload confirmado: Arquivo temporário removido: %1").arg(mediaPath));
-			}
+			AyuLogger::log(QString("Upload confirmado para mensagem %1").arg(startIndex + 1));
 		} catch (...) {
-			AyuLogger::logError(QString("Falha ao enviar mensagem %1").arg(i + 1));
+			AyuLogger::logError(QString("Falha ao enviar mensagem %1").arg(startIndex + 1));
 		}
+
+		// 3. Delete downloaded file immediately before moving to next item
+		for (const auto &path : mediaPaths) {
+			if (QFile::exists(path)) {
+				QFile::remove(path);
+				AyuLogger::log(QString("Arquivo temporário removido: %1").arg(path));
+			}
+		}
+
+		// Advance index by processed group size
+		i += groupItems.size() - 1;
 	}
 
 	updateStatus(totalMessages, totalMessages, "Finalizado", "Encaminhamento concluído com sucesso!");
 }
+
+void QueueManager::processDownloads() {}
+void QueueManager::runDownloadTask(not_null<HistoryItem*> item) {}
+void QueueManager::processUploads() {}
 
 } // namespace AyuForward

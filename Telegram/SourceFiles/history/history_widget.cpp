@@ -10487,15 +10487,25 @@ HistoryWidget::~HistoryWidget() {
 }
 
 void HistoryWidget::updateAyuStatusBar() {
-	bool needBar = _peer && AyuForward::isForwarding(_peer->id);
+	bool needBar = (_peer != nullptr);
 	if (needBar) {
 		if (!_ayuStatusBar) {
 			_ayuStatusBar = object_ptr<AyuForward::AyuStatusBar>(
 				_topBars.get(),
 				[=] { updateControlsGeometry(); });
 			_ayuStatusBar->show();
-			AyuForward::registerStatusBar(_peer->id, _ayuStatusBar.data());
 			updateControlsGeometry();
+		}
+		AyuForward::registerStatusBar(_peer->id, _ayuStatusBar.data());
+
+		if (AyuForward::isForwarding(_peer->id)) {
+			auto [stateText, logText] = AyuForward::stateName(_peer->id);
+			_ayuStatusBar->setProgress(0, 0, stateText);
+			if (!logText.isEmpty()) {
+				_ayuStatusBar->addLogLine(logText);
+			}
+		} else {
+			_ayuStatusBar->setProgress(0, 0, "Pronto");
 		}
 	} else {
 		if (_ayuStatusBar) {

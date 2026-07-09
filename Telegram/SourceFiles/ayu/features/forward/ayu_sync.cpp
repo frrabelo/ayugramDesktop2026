@@ -27,11 +27,16 @@ namespace AyuSync {
 QString pathForSave(not_null<Main::Session*> session) {
 	auto path = Core::App().settings().downloadPath();
 	if (path.isEmpty()) {
-		return File::DefaultDownloadPath(session);
+		path = File::DefaultDownloadPath(session);
 	}
 	if (path == FileDialog::Tmp()) {
-		return session->local().tempDirectory();
+		path = session->local().tempDirectory();
 	}
+	if (!path.endsWith('/') && !path.endsWith('\\')) {
+		path += '/';
+	}
+	path += "AyuGram Desktop/";
+	QDir().mkpath(path);
 	return path;
 }
 
@@ -41,30 +46,26 @@ QString filePath(not_null<Main::Session*> session, const Data::Media *media) {
 	}
 
 	if (const auto document = media->document()) {
-		if (!document->filename().isEmpty()) {
-			return pathForSave(session) + media->document()->filename();
+		QString baseName = document->filename();
+		if (baseName.isEmpty()) {
+			if (document->isVoiceMessage()) {
+				baseName = "audio_" + QString::number(document->getDC()) + "_" +
+					QString::number(document->id) + ".ogg";
+			} else if (document->isVideoMessage()) {
+				baseName = "round_" + QString::number(document->getDC()) + "_" +
+					QString::number(document->id) + ".mp4";
+			} else if (document->isGifv()) {
+				baseName = "gif_" + QString::number(document->getDC()) + "_" +
+					QString::number(document->id) + ".gif";
+			} else if (document->isVideoFile()) {
+				baseName = "video_" + QString::number(document->getDC()) + "_" +
+					QString::number(document->id) + ".mp4";
+			} else {
+				baseName = "file_" + QString::number(document->getDC()) + "_" +
+					QString::number(document->id);
+			}
 		}
-		if (const auto name = document->filepath(true); !name.isEmpty()) {
-			return name;
-		}
-		if (document->isVoiceMessage()) {
-			return pathForSave(session) + "audio_" + QString::number(document->getDC()) + "_" +
-				QString::number(document->id) + ".ogg";
-		}
-		if (document->isVideoMessage()) {
-			return pathForSave(session) + "round_" + QString::number(document->getDC()) + "_" +
-				QString::number(document->id) + ".mp4";
-		}
-
-		// media without any file name
-		if (document->isGifv()) {
-			return pathForSave(session) + "gif_" + QString::number(document->getDC()) + "_" +
-				QString::number(document->id) + ".gif";
-		}
-		if (document->isVideoFile()) {
-			return pathForSave(session) + "video_" + QString::number(document->getDC()) + "_" +
-				QString::number(document->id) + ".mp4";
-		}
+		return pathForSave(session) + baseName;
 	} else if (const auto photo = media->photo()) {
 		return pathForSave(session) + QString::number(photo->getDC()) + "_" + QString::number(photo->id) + ".jpg";
 	}
@@ -116,34 +117,28 @@ void loadDocumentSync(not_null<Main::Session*> session, DocumentData *data, not_
 	if (path.isEmpty()) {
 		return;
 	}
+	const auto fullId = item->fullId();
+	const auto expectedSize = data->size;
+
 	crl::on_main([=]
 	{
-		data->save(Data::FileOriginMessage(item->fullId()), path);
+		data->save(Data::FileOriginMessage(fullId), path);
 
 		session->downloaderTaskFinished() | rpl::filter([=]
 		{
-			return !data || data->status == FileDownloadFailed || fileSize(item) == data->size;
+			QFile file(path);
+			qint64 size = file.exists() ? file.size() : 0;
+			return !data || data->status == FileDownloadFailed || size == expectedSize;
 		}) | rpl::on_next([=]() mutable
-								  {
-									  latch->countDown();
-								  },
-								  *lifetime);
+		{
+			latch->countDown();
+		}, *lifetime);
 	});
 
-	constexpr auto overall = std::chrono::minutes(15);
-	const auto startTime = std::chrono::steady_clock::now();
-
-	while (std::chrono::steady_clock::now() - startTime < overall) {
-		if (latch->await(std::chrono::minutes(5))) {
-			break;
-		}
-
-		if (!data || !data->loading()) {
-			break;
-		}
-	}
-
-	base::take(lifetime)->destroy();
+	latch->await(std::chrono::minutes(15));
+	crl::on_main([=] {
+		lifetime->destroy();
+	});
 }
 
 void forwardMessagesSync(not_null<Main::Session*> session,
@@ -206,24 +201,26 @@ void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<Ph
 	auto latch = std::make_shared<TimedCountDownLatch>(1);
 	auto lifetime = std::make_shared<rpl::lifetime>();
 
-	if (finalCheck()) {
-		saveToFiles();
-	} else {
-		crl::on_main([=]
-		{
+	crl::on_main([=]
+	{
+		if (finalCheck()) {
+			saveToFiles();
+			latch->countDown();
+		} else {
 			session->downloaderTaskFinished() | rpl::filter([=]
 			{
 				return finalCheck();
 			}) | rpl::on_next([=]() mutable
-									  {
-										  saveToFiles();
-										  latch->countDown();
-									  },
-									  *lifetime);
-		});
-		latch->await(std::chrono::minutes(5));
-		base::take(lifetime)->destroy();
-	}
+			{
+				saveToFiles();
+				latch->countDown();
+			}, *lifetime);
+		}
+	});
+	latch->await(std::chrono::minutes(5));
+	crl::on_main([=] {
+		lifetime->destroy();
+	});
 }
 
 void sendMessageSync(not_null<Main::Session*> session, Api::MessageToSend &&message) {
