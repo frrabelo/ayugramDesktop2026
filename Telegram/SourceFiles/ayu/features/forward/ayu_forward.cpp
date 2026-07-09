@@ -38,8 +38,8 @@ rpl::producer<PeerId> forwardStarted() {
 	return forwardStartedStream.events();
 }
 
-void notifyForwardStarted(const PeerId &id) {
-	forwardStartedStream.fire(id);
+void notifyForwardStarted(PeerId id) {
+	forwardStartedStream.fire(std::move(id));
 }
 
 void registerStatusBar(const PeerId &id, AyuStatusBar *bar) {
