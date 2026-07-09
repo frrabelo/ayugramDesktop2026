@@ -287,7 +287,8 @@ void QueueManager::runQueue() {
 					AyuSync::sendMessageSync(_session, std::move(message));
 				} else {
 					std::vector<not_null<Data::Media*>> groupMedia;
-					auto preparedMedia = prepareMedia(_session, _items, i, groupMedia);
+					int prepareIndex = i;
+					auto preparedMedia = prepareMedia(_session, _items, prepareIndex, groupMedia);
 
 					Ui::SendFilesWay way;
 					way.setGroupFiles(true);

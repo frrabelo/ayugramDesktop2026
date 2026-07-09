@@ -7233,7 +7233,8 @@ void HistoryWidget::updateControlsGeometry() {
 	moveFieldControls();
 
 	_topBars->move(tabsLeftSkip, _topBar->bottomNoMargins()
-		+ (_subsectionTabs ? _subsectionTabs->topSkip() : 0));
+		+ (_subsectionTabs ? _subsectionTabs->topSkip() : 0)
+		+ (_ayuStatusBar ? _ayuStatusBar->desiredHeight() : 0));
 	const auto groupCallTop = 0;
 	if (_groupCallBar) {
 		_groupCallBar->move(0, groupCallTop);
@@ -7278,15 +7279,13 @@ void HistoryWidget::updateControlsGeometry() {
 	if (_businessBotStatus) {
 		_businessBotStatus->bar().move(tabsLeftSkip, businessBotTop);
 	}
-	const auto ayuStatusTop = businessBotTop
-		+ (_businessBotStatus ? _businessBotStatus->bar().height() : 0);
 	if (_ayuStatusBar) {
-		_ayuStatusBar->move(0, ayuStatusTop);
+		_ayuStatusBar->move(tabsLeftSkip, _topBar->bottomNoMargins());
 		_ayuStatusBar->resizeToWidth(innerWidth);
 	}
 	const auto scrollAreaTop = _topBars->y()
-		+ ayuStatusTop
-		+ (_ayuStatusBar ? _ayuStatusBar->desiredHeight() : 0);
+		+ businessBotTop
+		+ (_businessBotStatus ? _businessBotStatus->bar().height() : 0);
 	_topBars->resize(
 		innerWidth,
 		scrollAreaTop - _topBars->y() + st::lineWidth);
@@ -10491,7 +10490,7 @@ void HistoryWidget::updateAyuStatusBar() {
 	if (needBar) {
 		if (!_ayuStatusBar) {
 			_ayuStatusBar = object_ptr<AyuForward::AyuStatusBar>(
-				_topBars.get(),
+				this,
 				[=] { updateControlsGeometry(); });
 			_ayuStatusBar->show();
 			updateControlsGeometry();

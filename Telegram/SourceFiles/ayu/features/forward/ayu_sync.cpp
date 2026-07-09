@@ -242,21 +242,24 @@ void waitForMsgSync(not_null<Main::Session*> session, const Api::SendAction &act
 	auto latch = std::make_shared<TimedCountDownLatch>(1);
 	auto lifetime = std::make_shared<rpl::lifetime>();
 
+	const auto expectedPeerId = action.history->peer->id;
+
 	crl::on_main([=]
 	{
 		session->data().itemIdChanged()
 			| rpl::filter([=](const Data::Session::IdChange &update)
 			{
-				return action.history->peer->id == update.newId.peer;
+				return expectedPeerId == update.newId.peer;
 			}) | rpl::on_next([=]
-									  {
-										  latch->countDown();
-									  },
-									  *lifetime);
+			{
+				latch->countDown();
+			}, *lifetime);
 	});
 
 	latch->await(std::chrono::minutes(5));
-	base::take(lifetime)->destroy();
+	crl::on_main([=] {
+		lifetime->destroy();
+	});
 }
 
 void sendDocumentSync(not_null<Main::Session*> session,
