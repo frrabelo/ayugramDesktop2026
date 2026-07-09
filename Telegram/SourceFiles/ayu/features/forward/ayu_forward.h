@@ -8,9 +8,13 @@
 
 #include "history/history.h"
 #include "main/main_session.h"
+#include <rpl/rpl.h>
 
 namespace AyuForward {
 class AyuStatusBar;
+
+[[nodiscard]] rpl::producer<PeerId> forwardStarted();
+void notifyForwardStarted(const PeerId &id);
 
 bool isForwarding(const PeerId &id);
 void cancelForward(const PeerId &id, const Main::Session &session);

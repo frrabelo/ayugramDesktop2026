@@ -7318,11 +7318,6 @@ void HistoryWidget::updateControlsGeometry() {
 		_topBar->bottomNoMargins(),
 		width - topShadowLeft - topShadowRight,
 		st::lineWidth);
-
-	if (_ayuStatusBar) {
-		_ayuStatusBar->move(tabsLeftSkip, scrollAreaTop + _scroll->height());
-		_ayuStatusBar->resizeToWidth(innerWidth);
-	}
 }
 
 void HistoryWidget::itemRemoved(not_null<const HistoryItem*> item) {
@@ -7481,7 +7476,6 @@ Data::SendError HistoryWidget::computeSendRestriction() const {
 }
 
 void HistoryWidget::updateSendRestriction() {
-	updateAyuStatusBar();
 	const auto restriction = computeSendRestriction();
 	if (_sendRestrictionKey == restriction.text) {
 		return;
@@ -7566,9 +7560,6 @@ void HistoryWidget::updateHistoryGeometry(
 	}
 	if (_businessBotStatus) {
 		newScrollHeight -= _businessBotStatus->bar().height();
-	}
-	if (_ayuStatusBar) {
-		newScrollHeight -= _ayuStatusBar->desiredHeight();
 	}
 	if (isChoosingTheme()) {
 		newScrollHeight -= _chooseTheme->height();
@@ -10484,36 +10475,4 @@ HistoryWidget::~HistoryWidget() {
 	_subsectionTabsLifetime.destroy();
 	_subsectionTabs = nullptr;
 	setTabbedPanel(nullptr);
-}
-
-void HistoryWidget::updateAyuStatusBar() {
-	bool needBar = (_peer != nullptr);
-	if (needBar) {
-		if (!_ayuStatusBar) {
-			_ayuStatusBar = object_ptr<AyuForward::AyuStatusBar>(
-				this,
-				[=] { updateControlsGeometry(); });
-			_ayuStatusBar->show();
-			updateControlsGeometry();
-		}
-		AyuForward::registerStatusBar(_peer->id, _ayuStatusBar.data());
-
-		if (AyuForward::isForwarding(_peer->id)) {
-			auto [stateText, logText] = AyuForward::stateName(_peer->id);
-			_ayuStatusBar->setProgress(0, 0, stateText);
-			if (!logText.isEmpty()) {
-				_ayuStatusBar->addLogLine(logText);
-			}
-		} else {
-			_ayuStatusBar->setProgress(0, 0, "Pronto");
-		}
-	} else {
-		if (_ayuStatusBar) {
-			if (_peer) {
-				AyuForward::unregisterStatusBar(_peer->id);
-			}
-			_ayuStatusBar = nullptr;
-			updateControlsGeometry();
-		}
-	}
 }

@@ -70,6 +70,10 @@ class List;
 struct Content;
 } // namespace Dialogs::Stories
 
+namespace AyuForward {
+class AyuStatusBar;
+} // namespace AyuForward
+
 namespace Dialogs {
 
 extern const char kOptionForumHideChatsList[];
@@ -421,6 +425,8 @@ private:
 	rpl::variable<float64> _childListShown;
 	rpl::variable<PeerId> _childListPeerId;
 	std::unique_ptr<Ui::RpWidget> _hideChildListCanvas;
+
+	object_ptr<AyuForward::AyuStatusBar> _ayuStatusBar = { nullptr };
 
 };
 

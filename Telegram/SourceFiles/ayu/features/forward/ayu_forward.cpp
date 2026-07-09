@@ -32,6 +32,15 @@ namespace AyuForward {
 
 std::unordered_map<PeerId, std::shared_ptr<ForwardState>> forwardStates;
 std::unordered_map<PeerId, AyuStatusBar*> activeStatusBars;
+rpl::event_stream<PeerId> forwardStartedStream;
+
+rpl::producer<PeerId> forwardStarted() {
+	return forwardStartedStream.events();
+}
+
+void notifyForwardStarted(const PeerId &id) {
+	forwardStartedStream.fire(id);
+}
 
 void registerStatusBar(const PeerId &id, AyuStatusBar *bar) {
 	for (auto it = activeStatusBars.begin(); it != activeStatusBars.end(); ) {
@@ -49,8 +58,10 @@ void unregisterStatusBar(const PeerId &id) {
 }
 
 AyuStatusBar* getStatusBar(const PeerId &id) {
-	const auto it = activeStatusBars.find(id);
-	return (it != activeStatusBars.end()) ? it->second : nullptr;
+	if (!activeStatusBars.empty()) {
+		return activeStatusBars.begin()->second;
+	}
+	return nullptr;
 }
 
 bool isForwarding(const PeerId &id) {
@@ -312,6 +323,7 @@ void intelligentForward(
 	state->totalMessages = items.size();
 	forwardStates[peer->id] = state;
 	state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
+	notifyForwardStarted(peer->id);
 
 
 	for (const auto &chunk : chunks) {
@@ -360,6 +372,7 @@ void forwardMessages(
 		state->totalMessages = items.size();
 		forwardStates[peer->id] = state;
 		state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
+		notifyForwardStarted(peer->id);
 	}
 
 	AyuStatusBar* bar = nullptr;

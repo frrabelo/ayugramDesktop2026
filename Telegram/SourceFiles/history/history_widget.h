@@ -136,9 +136,7 @@ struct VoiceToSend;
 class BotKeyboard;
 class HistoryInner;
 
-namespace AyuForward {
-class AyuStatusBar;
-} // namespace AyuForward
+
 
 class HistoryWidget final
 	: public Window::AbstractSectionWidget
@@ -640,7 +638,6 @@ private:
 	void addMessagesToBack(not_null<PeerData*> peer, const QVector<MTPMessage> &messages);
 
 	void updateSendRestriction();
-	void updateAyuStatusBar();
 	[[nodiscard]] Data::SendError computeSendRestriction() const;
 	void updateHistoryGeometry(bool initial = false, bool loadedDown = false, const ScrollChange &change = { ScrollChangeNone, 0 });
 	void updateListSize();
@@ -851,7 +848,6 @@ private:
 	std::unique_ptr<HistoryView::PaysStatus> _paysStatus;
 	std::unique_ptr<HistoryView::ContactStatus> _contactStatus;
 	std::unique_ptr<HistoryView::BusinessBotStatus> _businessBotStatus;
-	object_ptr<AyuForward::AyuStatusBar> _ayuStatusBar = { nullptr };
 
 	const std::shared_ptr<Ui::SendButton> _send;
 	HistoryView::Controls::ComposeAiButton * const _aiButton = nullptr;

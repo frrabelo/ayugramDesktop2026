@@ -177,32 +177,33 @@ void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<Ph
 		return;
 	}
 
-	const auto view = photo.first->createMediaView();
-	if (!view) {
-		return;
-	}
-	view->wanted(Data::PhotoSize::Large, photo.second);
-
-	const auto finalCheck = [=]
-	{
-		return !photo.first->loading();
-	};
-
-	const auto saveToFiles = [=]
-	{
-		QDir directory(path);
-		const auto dir = directory.absolutePath();
-		const auto nameBase = dir.endsWith('/') ? dir : dir + '/';
-		const auto fullPath = nameBase + QString::number(photo.first->getDC()) + "_" + QString::number(photo.first->id)
-			+ ".jpg";
-		view->saveToFile(fullPath);
-	};
-
 	auto latch = std::make_shared<TimedCountDownLatch>(1);
 	auto lifetime = std::make_shared<rpl::lifetime>();
 
 	crl::on_main([=]
 	{
+		const auto view = photo.first->createMediaView();
+		if (!view) {
+			latch->countDown();
+			return;
+		}
+		view->wanted(Data::PhotoSize::Large, photo.second);
+
+		const auto finalCheck = [=]
+		{
+			return !photo.first->loading();
+		};
+
+		const auto saveToFiles = [=]
+		{
+			QDir directory(path);
+			const auto dir = directory.absolutePath();
+			const auto nameBase = dir.endsWith('/') ? dir : dir + '/';
+			const auto fullPath = nameBase + QString::number(photo.first->getDC()) + "_" + QString::number(photo.first->id)
+				+ ".jpg";
+			view->saveToFile(fullPath);
+		};
+
 		if (finalCheck()) {
 			saveToFiles();
 			latch->countDown();

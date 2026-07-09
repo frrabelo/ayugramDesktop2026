@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/dialogs_widget.h"
 
+#include "ayu/features/forward/ayu_status_bar.h"
+#include "ayu/features/forward/ayu_forward.h"
+
 #include "base/call_delayed.h"
 #include "base/qt/qt_key_modifiers.h"
 #include "base/options.h"
@@ -786,6 +789,11 @@ Widget::Widget(
 
 	setupFrozenAccountBar();
 	setupTopBarSuggestions();
+
+	AyuForward::forwardStarted(
+	) | rpl::on_next([=](const PeerId &id) {
+		updateControlsGeometry();
+	}, lifetime());
 }
 
 void Widget::setupSwipeBack() {
@@ -4053,7 +4061,27 @@ void Widget::updateControlsGeometry() {
 	if (width() < _narrowWidth) {
 		return;
 	}
-	auto filterAreaTop = 0;
+
+	bool showBar = false;
+	for (const auto &pair : AyuForward::forwardStates) {
+		showBar = true;
+		break;
+	}
+
+	if (showBar) {
+		if (!_ayuStatusBar) {
+			_ayuStatusBar = object_ptr<AyuForward::AyuStatusBar>(
+				this,
+				[=] { updateControlsGeometry(); });
+			_ayuStatusBar->show();
+			AyuForward::registerStatusBar(PeerId(0), _ayuStatusBar.data());
+		}
+	} else {
+		if (_ayuStatusBar) {
+			AyuForward::unregisterStatusBar(PeerId(0));
+			_ayuStatusBar = nullptr;
+		}
+	}
 
 	const auto ratiow = anim::interpolate(
 		width(),
@@ -4063,6 +4091,13 @@ void Widget::updateControlsGeometry() {
 	const auto narrowRatio = (ratiow < smallw)
 		? ((smallw - ratiow) / float64(smallw - _narrowWidth))
 		: 0.;
+
+	auto filterAreaTop = 0;
+	if (_ayuStatusBar) {
+		_ayuStatusBar->move(0, 0);
+		_ayuStatusBar->resizeToWidth(ratiow);
+		filterAreaTop += _ayuStatusBar->desiredHeight();
+	}
 
 	auto filterLeft = (controller()->filtersWidth()
 		? st::dialogsFilterSkip
@@ -4604,6 +4639,10 @@ Widget::~Widget() {
 
 	// Destructor may hide the bar and attempt to double-destroy it.
 	base::take(_downloadBar);
+
+	if (_ayuStatusBar) {
+		AyuForward::unregisterStatusBar(PeerId(0));
+	}
 }
 
 } // namespace Dialogs
