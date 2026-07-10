@@ -64,6 +64,10 @@ AyuStatusBar* getStatusBar(const PeerId &id) {
 	return nullptr;
 }
 
+bool hasAnyForwardState() {
+	return !forwardStates.empty();
+}
+
 bool isForwarding(const PeerId &id) {
 	const auto fwState = forwardStates.find(id);
 	if (id.value && fwState != forwardStates.end()) {

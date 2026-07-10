@@ -22,6 +22,7 @@ std::pair<QString, QString> stateName(const PeerId &id);
 void registerStatusBar(const PeerId &id, AyuStatusBar *bar);
 void unregisterStatusBar(const PeerId &id);
 AyuStatusBar* getStatusBar(const PeerId &id);
+bool hasAnyForwardState();
 
 class ForwardState
 {
