@@ -210,9 +210,10 @@ bool PhotoMedia::saveToFile(const QString &path) {
 		QFile f(path);
 		return f.open(QIODevice::WriteOnly)
 			&& (f.write(photo) == photo.size());
-	} else if (const auto fallback = image(large)->original()
-		; !fallback.isNull()) {
-		return fallback.save(path, "JPG");
+	} else if (const auto img = image(large)) {
+		if (const auto fallback = img->original(); !fallback.isNull()) {
+			return fallback.save(path, "JPG");
+		}
 	}
 	return false;
 }

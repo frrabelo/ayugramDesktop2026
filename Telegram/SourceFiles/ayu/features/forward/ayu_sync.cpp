@@ -196,6 +196,9 @@ void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<Ph
 
 		const auto saveToFiles = [=]
 		{
+			if (!view->loaded()) {
+				return;
+			}
 			QDir directory(path);
 			const auto dir = directory.absolutePath();
 			const auto nameBase = dir.endsWith('/') ? dir : dir + '/';
