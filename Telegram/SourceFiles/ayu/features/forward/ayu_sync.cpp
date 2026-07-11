@@ -227,7 +227,6 @@ void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<Ph
 		}, *lifetime);
 	}
 }
-}
 
 void sendMessageSync(not_null<Main::Session*> session, Api::MessageToSend &&message) {
 	const auto action = message.action;
