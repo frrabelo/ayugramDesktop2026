@@ -86,59 +86,63 @@ qint64 fileSize(not_null<HistoryItem*> item) {
 
 void loadDocuments(not_null<Main::Session*> session, const std::vector<not_null<HistoryItem*>> &items) {
 	for (const auto &item : items) {
-		if (const auto data = item->media()->document()) {
-			const auto size = fileSize(item);
-
-			if (size == data->size) {
-				continue;
+		auto latch = std::make_shared<TimedCountDownLatch>(1);
+		crl::on_main([=] {
+			if (const auto media = item->media()) {
+				if (const auto data = media->document()) {
+					const auto size = fileSize(item);
+					if (size == data->size) {
+						latch->countDown();
+						return;
+					}
+					if (size && size < data->size) {
+						QFile file(filePath(session, media));
+						file.remove();
+					}
+					loadDocumentSync(session, data, item, latch);
+				} else if (const auto photo = media->photo()) {
+					const auto size = fileSize(item);
+					if (size == photo->imageByteSize(Data::PhotoSize::Large)) {
+						latch->countDown();
+						return;
+					}
+					loadPhotoSync(session, std::pair(photo, item->fullId()), latch);
+				} else {
+					latch->countDown();
+				}
+			} else {
+				latch->countDown();
 			}
-			if (size && size < data->size) {
-				// in case there some unfinished file
-				QFile file(filePath(session, item->media()));
-				file.remove();
-			}
-
-			loadDocumentSync(session, data, item);
-		} else if (auto photo = item->media()->photo()) {
-			if (fileSize(item) == photo->imageByteSize(Data::PhotoSize::Large)) {
-				continue;
-			}
-
-			loadPhotoSync(session, std::pair(photo, item->fullId()));
-		}
+		});
+		latch->await(std::chrono::minutes(15));
 	}
 }
 
-void loadDocumentSync(not_null<Main::Session*> session, DocumentData *data, not_null<HistoryItem*> item) {
-	auto latch = std::make_shared<TimedCountDownLatch>(1);
+void loadDocumentSync(not_null<Main::Session*> session, DocumentData *data, not_null<HistoryItem*> item, const std::shared_ptr<TimedCountDownLatch> &latch) {
 	auto lifetime = std::make_shared<rpl::lifetime>();
 
 	auto path = filePath(session, item->media());
 	if (path.isEmpty()) {
+		latch->countDown();
 		return;
 	}
 	const auto fullId = item->fullId();
 	const auto expectedSize = data->size;
 
-	crl::on_main([=]
+	data->save(Data::FileOriginMessage(fullId), path);
+
+	session->downloaderTaskFinished() | rpl::filter([=]
 	{
-		data->save(Data::FileOriginMessage(fullId), path);
-
-		session->downloaderTaskFinished() | rpl::filter([=]
-		{
-			QFile file(path);
-			qint64 size = file.exists() ? file.size() : 0;
-			return !data || data->status == FileDownloadFailed || size == expectedSize;
-		}) | rpl::on_next([=]() mutable
-		{
-			latch->countDown();
-		}, *lifetime);
-	});
-
-	latch->await(std::chrono::minutes(15));
-	crl::on_main([=] {
-		lifetime->destroy();
-	});
+		QFile file(path);
+		qint64 size = file.exists() ? file.size() : 0;
+		return !data || data->status == FileDownloadFailed || size == expectedSize;
+	}) | rpl::on_next([=]() mutable
+	{
+		latch->countDown();
+		crl::on_main([lifetime] {
+			lifetime->destroy();
+		});
+	}, *lifetime);
 }
 
 void forwardMessagesSync(not_null<Main::Session*> session,
@@ -161,7 +165,7 @@ void forwardMessagesSync(not_null<Main::Session*> session,
 	latch->await(std::chrono::minutes(1));
 }
 
-void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<PhotoData*>, FullMsgId> &photo) {
+void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<PhotoData*>, FullMsgId> &photo, const std::shared_ptr<TimedCountDownLatch> &latch) {
 	const auto folderPath = pathForSave(session);
 	const auto downloadPath = folderPath.isEmpty() ? Core::App().settings().downloadPath() : folderPath;
 
@@ -171,60 +175,58 @@ void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<Ph
 								? session->local().tempDirectory()
 								: downloadPath;
 	if (path.isEmpty()) {
+		latch->countDown();
 		return;
 	}
 	if (!QDir().mkpath(path)) {
+		latch->countDown();
 		return;
 	}
 
-	auto latch = std::make_shared<TimedCountDownLatch>(1);
 	auto lifetime = std::make_shared<rpl::lifetime>();
 
-	crl::on_main([=]
+	const auto view = photo.first->createMediaView();
+	if (!view) {
+		latch->countDown();
+		return;
+	}
+	view->wanted(Data::PhotoSize::Large, photo.second);
+
+	const auto finalCheck = [=]
 	{
-		const auto view = photo.first->createMediaView();
-		if (!view) {
-			latch->countDown();
+		return !photo.first->loading();
+	};
+
+	const auto saveToFiles = [=]
+	{
+		if (!view->loaded()) {
 			return;
 		}
-		view->wanted(Data::PhotoSize::Large, photo.second);
+		QDir directory(path);
+		const auto dir = directory.absolutePath();
+		const auto nameBase = dir.endsWith('/') ? dir : dir + '/';
+		const auto fullPath = nameBase + QString::number(photo.first->getDC()) + "_" + QString::number(photo.first->id)
+			+ ".jpg";
+		view->saveToFile(fullPath);
+	};
 
-		const auto finalCheck = [=]
+	if (finalCheck()) {
+		saveToFiles();
+		latch->countDown();
+	} else {
+		session->downloaderTaskFinished() | rpl::filter([=]
 		{
-			return !photo.first->loading();
-		};
-
-		const auto saveToFiles = [=]
+			return finalCheck();
+		}) | rpl::on_next([=]() mutable
 		{
-			if (!view->loaded()) {
-				return;
-			}
-			QDir directory(path);
-			const auto dir = directory.absolutePath();
-			const auto nameBase = dir.endsWith('/') ? dir : dir + '/';
-			const auto fullPath = nameBase + QString::number(photo.first->getDC()) + "_" + QString::number(photo.first->id)
-				+ ".jpg";
-			view->saveToFile(fullPath);
-		};
-
-		if (finalCheck()) {
 			saveToFiles();
 			latch->countDown();
-		} else {
-			session->downloaderTaskFinished() | rpl::filter([=]
-			{
-				return finalCheck();
-			}) | rpl::on_next([=]() mutable
-			{
-				saveToFiles();
-				latch->countDown();
-			}, *lifetime);
-		}
-	});
-	latch->await(std::chrono::minutes(5));
-	crl::on_main([=] {
-		lifetime->destroy();
-	});
+			crl::on_main([lifetime] {
+				lifetime->destroy();
+			});
+		}, *lifetime);
+	}
+}
 }
 
 void sendMessageSync(not_null<Main::Session*> session, Api::MessageToSend &&message) {

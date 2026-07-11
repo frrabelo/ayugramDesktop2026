@@ -17,6 +17,8 @@
 #include "storage/storage_account.h"
 #include "ui/chat/attach/attach_prepare.h"
 
+class TimedCountDownLatch;
+
 namespace AyuSync {
 
 QString pathForSave(not_null<Main::Session*> session);
@@ -35,8 +37,8 @@ void sendStickerSync(not_null<Main::Session*> session,
 					 Api::MessageToSend &&message,
 					 not_null<DocumentData*> document);
 void waitForMsgSync(not_null<Main::Session*> session, const Api::SendAction &action);
-void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<PhotoData*>, FullMsgId> &photos);
-void loadDocumentSync(not_null<Main::Session*> session, DocumentData *data, not_null<HistoryItem*> item);
+void loadPhotoSync(not_null<Main::Session*> session, const std::pair<not_null<PhotoData*>, FullMsgId> &photo, const std::shared_ptr<TimedCountDownLatch> &latch);
+void loadDocumentSync(not_null<Main::Session*> session, DocumentData *data, not_null<HistoryItem*> item, const std::shared_ptr<TimedCountDownLatch> &latch);
 void forwardMessagesSync(not_null<Main::Session*> session,
 						 const std::vector<not_null<HistoryItem*>> &items,
 						 const ApiWrap::SendAction &action,

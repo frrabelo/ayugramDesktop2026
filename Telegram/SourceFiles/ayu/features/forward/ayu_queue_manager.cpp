@@ -300,12 +300,11 @@ void QueueManager::runQueue() {
 						}
 					}
 
-					// Remove unfinished files
+					// Remove unfinished/empty files
 					for (int j = preparedMedia.files.size() - 1; j >= 0; j--) {
 						auto &file = preparedMedia.files[j];
 						QFile f(file.path);
-						if ((groupMedia[j]->photo() && f.size() < groupMedia[j]->photo()->imageByteSize(Data::PhotoSize::Large)) ||
-							(groupMedia[j]->document() && f.size() < groupMedia[j]->document()->size)) {
+						if (!f.exists() || f.size() == 0) {
 							preparedMedia.files.erase(preparedMedia.files.begin() + j);
 						}
 					}
