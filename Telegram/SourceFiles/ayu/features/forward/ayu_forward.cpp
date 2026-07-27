@@ -64,6 +64,16 @@ AyuStatusBar* getStatusBar(const PeerId &id) {
 	return nullptr;
 }
 
+static bool g_statusBarActive = false;
+
+void setStatusBarActive(bool active) {
+	g_statusBarActive = active;
+}
+
+bool shouldShowStatusBar() {
+	return hasAnyForwardState() || g_statusBarActive;
+}
+
 bool hasAnyForwardState() {
 	return !forwardStates.empty();
 }
@@ -283,72 +293,81 @@ void intelligentForward(
 	not_null<Main::Session*> session,
 	const Api::SendAction &action,
 	const Data::ResolvedForwardDraft &draft) {
-	const auto history = action.history;
-	const auto topicRootId = action.replyTo.topicRootId;
-	const auto monoforumPeerId = action.replyTo.monoforumPeerId;
-	crl::on_main([=]
+	setStatusBarActive(true);
+	crl::async([=]
 	{
-		history->setForwardDraft(topicRootId, monoforumPeerId, {});
-	});
+		const auto history = action.history;
+		const auto topicRootId = action.replyTo.topicRootId;
+		const auto monoforumPeerId = action.replyTo.monoforumPeerId;
+		crl::on_main([=]
+		{
+			history->setForwardDraft(topicRootId, monoforumPeerId, {});
+		});
 
-	const auto items = draft.items;
-	if (items.empty()) {
-		return;
-	}
-	const auto peer = history->peer;
-
-	auto chunks = std::vector<ForwardChunk>();
-	auto currentArray = std::vector<not_null<HistoryItem*>>();
-
-	auto currentChunk = ForwardChunk({
-		.isAyuForwardNeeded = isAyuForwardNeeded(items[0]),
-		.items = currentArray
-	});
-
-	for (const auto &item : items) {
-		if (isAyuForwardNeeded(item) != currentChunk.isAyuForwardNeeded) {
-			currentChunk.items = currentArray;
-			chunks.push_back(currentChunk);
-
-			currentArray = std::vector<not_null<HistoryItem*>>();
-
-			currentChunk = ForwardChunk({
-				.isAyuForwardNeeded = isAyuForwardNeeded(item),
-				.items = currentArray
-			});
+		const auto items = draft.items;
+		if (items.empty()) {
+			return;
 		}
-		currentArray.push_back(item);
-	}
+		const auto peer = history->peer;
 
-	currentChunk.items = currentArray;
-	chunks.push_back(currentChunk);
+		auto chunks = std::vector<ForwardChunk>();
+		auto currentArray = std::vector<not_null<HistoryItem*>>();
 
-	auto state = std::make_shared<ForwardState>(chunks.size());
-	state->totalMessages = items.size();
-	forwardStates[peer->id] = state;
-	state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
-	notifyForwardStarted(peer->id);
+		auto currentChunk = ForwardChunk({
+			.isAyuForwardNeeded = isAyuForwardNeeded(items[0]),
+			.items = currentArray
+		});
 
+		for (const auto &item : items) {
+			if (isAyuForwardNeeded(item) != currentChunk.isAyuForwardNeeded) {
+				currentChunk.items = currentArray;
+				chunks.push_back(currentChunk);
 
-	for (const auto &chunk : chunks) {
-		if (chunk.isAyuForwardNeeded) {
-			forwardMessages(session, action, true, Data::ResolvedForwardDraft(chunk.items));
-		} else {
-			state->totalMessages = chunk.items.size();
-			state->sentMessages = 0;
-			state->updateBottomBar(*session, &peer->id, ForwardState::State::Sending);
+				currentArray = std::vector<not_null<HistoryItem*>>();
 
-			AyuSync::forwardMessagesSync(session, chunk.items, action, draft.options);
-
-			state->sentMessages = state->totalMessages;
-
-			state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
+				currentChunk = ForwardChunk({
+					.isAyuForwardNeeded = isAyuForwardNeeded(item),
+					.items = currentArray
+				});
+			}
+			currentArray.push_back(item);
 		}
-		state->currentChunk++;
-	}
 
-	state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
-	forwardStates.erase(peer->id);
+		currentChunk.items = currentArray;
+		chunks.push_back(currentChunk);
+
+		auto state = std::make_shared<ForwardState>(chunks.size());
+		state->totalMessages = items.size();
+		crl::on_main([=]
+		{
+			forwardStates[peer->id] = state;
+			state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
+			notifyForwardStarted(peer->id);
+		});
+
+		for (const auto &chunk : chunks) {
+			if (chunk.isAyuForwardNeeded) {
+				forwardMessages(session, action, true, Data::ResolvedForwardDraft(chunk.items));
+			} else {
+				state->totalMessages = chunk.items.size();
+				state->sentMessages = 0;
+				state->updateBottomBar(*session, &peer->id, ForwardState::State::Sending);
+
+				AyuSync::forwardMessagesSync(session, chunk.items, action, draft.options);
+
+				state->sentMessages = state->totalMessages;
+
+				state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
+			}
+			state->currentChunk++;
+		}
+
+		state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
+		crl::on_main([=]
+		{
+			forwardStates.erase(peer->id);
+		});
+	});
 }
 
 void forwardMessages(
@@ -356,40 +375,62 @@ void forwardMessages(
 	const Api::SendAction &action,
 	bool forwardState,
 	const Data::ResolvedForwardDraft &draft) {
-	const auto items = draft.items;
-	const auto history = action.history;
-	const auto peer = history->peer;
-
-	const auto topicRootId = action.replyTo.topicRootId;
-	const auto monoforumPeerId = action.replyTo.monoforumPeerId;
-	crl::on_main([=]
+	const auto run = [=]
 	{
-		history->setForwardDraft(topicRootId, monoforumPeerId, {});
-	});
+		const auto items = draft.items;
+		const auto history = action.history;
+		const auto peer = history->peer;
 
-	std::shared_ptr<ForwardState> state;
+		const auto topicRootId = action.replyTo.topicRootId;
+		const auto monoforumPeerId = action.replyTo.monoforumPeerId;
+		crl::on_main([=]
+		{
+			history->setForwardDraft(topicRootId, monoforumPeerId, {});
+		});
 
-	if (forwardState) {
-		state = std::make_shared<ForwardState>(*forwardStates[peer->id]);
+		std::shared_ptr<ForwardState> state;
+
+		if (forwardState) {
+			const auto it = forwardStates.find(peer->id);
+			if (it != forwardStates.end()) {
+				state = it->second;
+			}
+		}
+		if (!state) {
+			state = std::make_shared<ForwardState>(1);
+			state->totalMessages = items.size();
+			crl::on_main([=]
+			{
+				forwardStates[peer->id] = state;
+				state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
+				notifyForwardStarted(peer->id);
+			});
+		}
+
+		AyuStatusBar* bar = nullptr;
+		const auto it = activeStatusBars.find(peer->id);
+		if (it != activeStatusBars.end()) {
+			bar = it->second;
+		}
+
+		QueueManager manager(session, action, items, draft.options, bar);
+		manager.runQueue();
+
+		if (state) {
+			state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
+		}
+		crl::on_main([=]
+		{
+			forwardStates.erase(peer->id);
+		});
+	};
+
+	setStatusBarActive(true);
+	if (!forwardState) {
+		crl::async(run);
 	} else {
-		state = std::make_shared<ForwardState>(1);
-		state->totalMessages = items.size();
-		forwardStates[peer->id] = state;
-		state->updateBottomBar(*session, &peer->id, ForwardState::State::Downloading);
-		notifyForwardStarted(peer->id);
+		run();
 	}
-
-	AyuStatusBar* bar = nullptr;
-	const auto it = activeStatusBars.find(peer->id);
-	if (it != activeStatusBars.end()) {
-		bar = it->second;
-	}
-
-	QueueManager manager(session, action, items, draft.options, bar);
-	manager.runQueue();
-
-	state->updateBottomBar(*session, &peer->id, ForwardState::State::Finished);
-	forwardStates.erase(peer->id);
 }
 } // namespace AyuForward
 

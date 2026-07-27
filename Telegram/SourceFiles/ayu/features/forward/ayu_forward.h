@@ -23,6 +23,8 @@ void registerStatusBar(const PeerId &id, AyuStatusBar *bar);
 void unregisterStatusBar(const PeerId &id);
 AyuStatusBar* getStatusBar(const PeerId &id);
 bool hasAnyForwardState();
+void setStatusBarActive(bool active);
+bool shouldShowStatusBar();
 
 class ForwardState
 {

@@ -342,3 +342,31 @@ The `Error` template parameter defaults to `rpl::no_error`: `rpl::producer<Type,
 - Pass `rpl::lifetime` to `on_...` methods or store returned lifetime
 - Use `rpl::duplicate(producer)` to reuse a producer multiple times
 - Combined producers automatically unpack tuples in lambdas (works with `rpl::map`, `rpl::filter`, and `rpl::on_next`)
+
+## AyuGram Expert & Linux Specification
+
+### Repository Architecture & Scope
+
+- **Repository**: `frrabelo/ayugramDesktop2026` (fork of AyuGramDesktop / tdesktop).
+- **Core Language & Frameworks**: C++20, Qt 6.x, CMake + Ninja.
+- **Custom Libraries**: `lib_ui`, `lib_base`, `lib_tl`, `lib_webview`. Custom modules live under `Telegram/SourceFiles/ayu/` (e.g., `ayu_settings`, `ayu_logger`, `ayu_queue_manager`, `ayu_status_bar`, `ayudata.db` SQLite persistence).
+- **Reactivity & UI**: Use `rpl::` streams and `style::` definitions (from `.style` files). Never write plain QSS or raw CSS.
+- **Licensing**: GPLv3.
+
+### Threading & Non-Blocking Rules
+
+- **UI Thread Safety**: Never invoke blocking synchronizations (`TimedCountDownLatch::await()`, `Future::get()`, or sleep loops) on the Qt main UI event loop thread (`crl::on_main`).
+- **Asynchronous Execution**: Heavy tasks, bulk file processing, and forwarding queues must run asynchronously on background worker threads (`crl::async` or `QThreadPool`). Dispatch UI updates back to the main thread via `crl::on_main`.
+
+### Forwarding Queue & Resource Management
+
+- **Sequential Pipeline**: For bulk operations (such as forwarding > 10 messages), process items sequentially or in controlled album groups (Download $\rightarrow$ Upload $\rightarrow$ Immediate Deletion).
+- **Immediate Disk Cleanup**: Delete temporary local files immediately after upload confirmation is received to prevent cache exhaustion and disk space overflow.
+- **Status Bar Integration**: Visual progress must be reported thread-safely to `AyuStatusBar`, providing real-time status and logs access via `AyuLogger::openLogsFolder()`.
+
+### Linux Build & Packaging Pipeline
+
+- **Official Pipeline**: Docker `centos_env` with CMake + Ninja for reproducible glibc ABI compatibility.
+- **Build Targets**: AppImage, Flatpak, AUR, RPM.
+- **CMake Manifests**: Any new `.cpp` or `.h` file added under `Telegram/SourceFiles/ayu/` MUST be explicitly added to `Telegram/CMakeLists.txt`.
+

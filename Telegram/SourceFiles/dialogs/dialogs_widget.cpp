@@ -4062,7 +4062,7 @@ void Widget::updateControlsGeometry() {
 		return;
 	}
 
-	bool showBar = AyuForward::hasAnyForwardState();
+	bool showBar = AyuForward::shouldShowStatusBar();
 
 	if (showBar) {
 		if (!_ayuStatusBar) {

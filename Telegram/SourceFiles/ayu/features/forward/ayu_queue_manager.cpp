@@ -325,9 +325,11 @@ void QueueManager::runQueue() {
 		for (const auto &path : mediaPaths) {
 			if (QFile::exists(path)) {
 				QFile::remove(path);
-				AyuLogger::log(QString("Arquivo temporário removido: %1").arg(path));
+				AyuLogger::log(QString("Upload confirmado: Arquivo temporário removido: %1").arg(path));
 			}
 		}
+
+		updateStatus(i + groupItems.size(), totalMessages, "Concluído", QString("Mensagem %1 de %2 concluída").arg(i + groupItems.size()).arg(totalMessages));
 
 		// Advance index by processed group size
 		i += groupItems.size() - 1;

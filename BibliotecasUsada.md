@@ -50,7 +50,12 @@ sudo apt install -y \
   libstdc++6 \
   libgcc-s1 \
   libgbm1 \
-  libdrm2
+  libdrm2 \
+  libwayland-client0 \
+  libwayland-cursor0 \
+  libwayland-egl1 \
+  libgl1 \
+  libglx-mesa0
 ```
 
 ## Distribuições Baseadas em Fedora / Red Hat (Fedora, RHEL, Rocky Linux)
