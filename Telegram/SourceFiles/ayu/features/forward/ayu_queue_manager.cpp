@@ -260,8 +260,14 @@ void QueueManager::runQueue() {
 		}
 
 		if (!downloadSuccess) {
-			updateStatus(i, totalMessages, "Falha no download", QString("Erro ao baixar mídia da mensagem %1").arg(i + 1));
-			return;
+			updateStatus(i, totalMessages, "Falha no download", QString("Erro ao baixar mídia da mensagem %1. Pulando...").arg(i + 1));
+			for (const auto &path : mediaPaths) {
+				if (QFile::exists(path)) {
+					QFile::remove(path);
+				}
+			}
+			i += groupItems.size() - 1;
+			continue;
 		}
 
 		// 2. Upload the message
