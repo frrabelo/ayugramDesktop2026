@@ -63,6 +63,7 @@ QString filePath(not_null<Main::Session*> session, const Data::Media *media) {
 			} else {
 				baseName = "file_" + QString::number(document->getDC()) + "_" +
 					QString::number(document->id);
+			}
 		} else {
 			baseName = QString::number(document->id) + "_" + baseName;
 		}

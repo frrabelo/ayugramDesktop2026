@@ -154,49 +154,7 @@ void ForwardState::updateBottomBar(const Main::Session &session, const PeerId *p
 	});
 }
 
-static Ui::PreparedList prepareMedia(not_null<Main::Session*> session,
-									 const std::vector<not_null<HistoryItem*>> &items,
-									 int &i,
-									 std::vector<not_null<Data::Media*>> &groupMedia) {
-	const auto prepare = [&](not_null<Data::Media*> media)
-	{
-		groupMedia.emplace_back(media);
-		auto prepared = Ui::PreparedFile(AyuSync::filePath(session, media));
-		if (prepared.path.isEmpty()) {
-			// otherwise will fail assertion in PrepareDetails
-			return prepared;
-		}
-		Storage::PrepareDetails(prepared, st::sendMediaPreviewSize, PhotoSideLimit());
-		return prepared;
-	};
 
-	const auto startItem = items[i];
-	const auto media = startItem->media();
-	const auto groupId = startItem->groupId();
-
-	Ui::PreparedList list;
-	if (auto prepared = prepare(media); !prepared.path.isEmpty()) {
-		list.files.emplace_back(std::move(prepared));
-	}
-
-	if (!groupId.value) {
-		return list;
-	}
-
-	for (int k = i + 1; k < items.size(); ++k) {
-		const auto nextItem = items[k];
-		if (nextItem->groupId() != groupId) {
-			break;
-		}
-		if (const auto nextMedia = nextItem->media()) {
-			if (auto prepared = prepare(nextMedia); !prepared.path.isEmpty()) {
-				list.files.emplace_back(std::move(prepared));
-			}
-			i = k;
-		}
-	}
-	return list;
-}
 
 void sendMedia(
 	not_null<Main::Session*> session,
